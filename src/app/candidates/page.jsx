@@ -18,67 +18,30 @@ export default function CandidatesPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Merge static mock data with dynamic data from localStorage
-    const stored = JSON.parse(localStorage.getItem('resume_ai_candidates') || '[]')
-    const staticData = [
-      {
-        id: "1",
-        name: "Alex Johnson",
-        role: "Senior Frontend Engineer",
-        score: 92,
-        status: "Shortlisted",
-        match: "High",
-        applied: "2h ago",
-        email: "alex.j@example.com"
-      },
-      {
-        id: "2",
-        name: "Sarah Williams",
-        role: "Product Designer",
-        score: 88,
-        status: "Review",
-        match: "High",
-        applied: "5h ago",
-        email: "s.williams@design.co"
-      },
-      {
-        id: "3",
-        name: "Michael Brown",
-        role: "Backend Developer",
-        score: 74,
-        status: "Pending",
-        match: "Medium",
-        applied: "1d ago",
-        email: "mike.brown@dev.io"
-      },
-      {
-        id: "4",
-        name: "Emily Davis",
-        role: "Data Scientist",
-        score: 45,
-        status: "Rejected",
-        match: "Low",
-        applied: "1d ago",
-        email: "emily.d@data.sci"
-      },
-       {
-        id: "5",
-        name: "David Wilson",
-        role: "DevOps Engineer",
-        score: 65,
-        status: "Pending",
-        match: "Medium",
-        applied: "2d ago",
-        email: "dwilson@cloud.net"
-      },
-    ]
-    
-    // De-duplicate by ID
-    const all = [...stored, ...staticData]
-    const unique = Array.from(new Map(all.map(item => [item.id, item])).values())
-    
-    setCandidates(unique)
-    setLoading(false)
+    const fetchCandidates = async () => {
+        setLoading(true)
+        try {
+            const { supabase } = await import("@/lib/supabase")
+            const { data, error } = await supabase
+                .from('candidates')
+                .select('*')
+                .order('created_at', { ascending: false })
+            
+            if (error) {
+                console.error("Error fetching candidates:", error)
+                return
+            }
+
+            if (data) {
+                setCandidates(data)
+            }
+        } catch (err) {
+            console.error("Fetch error:", err)
+        } finally {
+            setLoading(false)
+        }
+    }
+    fetchCandidates()
   }, [])
 
   const filteredCandidates = candidates.filter(c => 

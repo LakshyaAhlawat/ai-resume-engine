@@ -14,10 +14,31 @@ export default function DashboardPage() {
   const [candidates, setCandidates] = useState([])
 
   useEffect(() => {
-    // Load only real uploaded candidates from localStorage
-    const stored = JSON.parse(localStorage.getItem('resume_ai_candidates') || '[]')
-    setCandidates(stored)
+    const fetchCandidates = async () => {
+        const { supabase } = await import("@/lib/supabase")
+        const { data, error } = await supabase
+            .from('candidates')
+            .select('*')
+            .order('created_at', { ascending: false })
+        
+        if (error) {
+            console.error("Error fetching candidates:", error)
+            return
+        }
+
+        if (data) {
+            setCandidates(data)
+        }
+    }
+    fetchCandidates()
   }, [])
+
+  const totalCandidates = candidates.length
+  const avgScore = candidates.length > 0 
+    ? Math.round(candidates.reduce((acc, curr) => acc + (curr.score || 0), 0) / candidates.length) 
+    : 0
+  const shortlisted = candidates.filter(c => c.status === "Shortlisted" || c.status === "Accepted").length
+  const openRoles = Array.from(new Set(candidates.map(c => c.role))).length
 
   return (
     <AppShell title="Dashboard">
@@ -28,8 +49,8 @@ export default function DashboardPage() {
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">1,248</div>
-            <p className="text-xs text-muted-foreground">+180 from last month</p>
+            <div className="text-2xl font-bold">{totalCandidates}</div>
+            <p className="text-xs text-muted-foreground">Across all positions</p>
           </CardContent>
         </Card>
         <Card>
@@ -38,28 +59,28 @@ export default function DashboardPage() {
             <div className="h-4 w-4 rounded-full bg-green-500/20" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">45</div>
-            <p className="text-xs text-muted-foreground">+12% acceptance rate</p>
+            <div className="text-2xl font-bold">{shortlisted}</div>
+            <p className="text-xs text-muted-foreground">Qualified for interview</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg. Score</CardTitle>
+            <CardTitle className="text-sm font-medium">Avg. Match Score</CardTitle>
             <div className="h-4 w-4 rounded-full bg-blue-500/20" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">78%</div>
-            <p className="text-xs text-muted-foreground">+2.5% vs average</p>
+            <div className="text-2xl font-bold">{avgScore}%</div>
+            <p className="text-xs text-muted-foreground">Overall talent quality</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Open Roles</CardTitle>
+            <CardTitle className="text-sm font-medium">Active Roles</CardTitle>
             <div className="h-4 w-4 rounded-full bg-orange-500/20" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">12</div>
-            <p className="text-xs text-muted-foreground">Active requisitions</p>
+            <div className="text-2xl font-bold">{openRoles}</div>
+            <p className="text-xs text-muted-foreground">Currently hiring</p>
           </CardContent>
         </Card>
       </div>
@@ -88,7 +109,7 @@ export default function DashboardPage() {
               <TableBody>
                 {candidates.map((candidate, i) => (
                   <TableRow key={candidate.id}>
-                    <TableCell className="font-medium">#{240 + i}</TableCell>
+                    <TableCell className="font-medium">#{candidate.id.slice(0, 5)}</TableCell>
                     <TableCell className="font-medium">{candidate.name}</TableCell>
                     <TableCell className="text-muted-foreground">{candidate.role}</TableCell>
                     <TableCell>

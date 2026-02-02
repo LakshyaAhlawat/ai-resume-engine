@@ -14,6 +14,8 @@ import { toast } from "sonner"
 export default function UploadPage() {
   const [dragActive, setDragActive] = useState(false)
   const [files, setFiles] = useState([])
+  const [jobDescription, setJobDescription] = useState("")
+  const [roleTitle, setRoleTitle] = useState("")
 
   const router = useRouter()
   const [isAnalyzing, setIsAnalyzing] = useState(false)
@@ -82,31 +84,56 @@ export default function UploadPage() {
 
         const scoreData = await scoreRes.json()
 
-        // 3. Create Candidate Object
-        const newCandidate = {
-            id: Math.random().toString(36).substr(2, 9),
-            name: parseData.parsed_data.name || "Uploaded Candidate",
-            role: "Full Stack Engineer", // Derived from JD in real app
-            score: scoreData.score || 0,
-            status: "Review",
-            match: (scoreData.score || 0) > 80 ? "High" : "Medium",
-            applied: "Just now",
-            analysis: scoreData.analysis || {},
-            skills: {
-                technical: 90,
-                experience: 85,
-                education: 95
-            }
+        // 3. Upload to Supabase Storage
+        const { supabase } = await import("@/lib/supabase")
+        const file = files[0].originalFile
+        const fileName = `${Math.random().toString(36).substr(2, 9)}-${file.name}`
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('resumes')
+            .upload(fileName, file)
+
+        if (uploadError) {
+            console.error("Upload error details:", uploadError)
+            throw new Error(`Resume upload failed: ${uploadError.message}. Make sure the 'resumes' bucket is created and set to public in Supabase Storage.`)
         }
 
-        // 4. Save to LocalStorage (Simulating DB)
-        const currentData = JSON.parse(localStorage.getItem('resume_ai_candidates') || '[]')
-        localStorage.setItem('resume_ai_candidates', JSON.stringify([newCandidate, ...currentData]))
+        const { data: { publicUrl } } = supabase.storage
+            .from('resumes')
+            .getPublicUrl(fileName)
+
+        // 4. Create Candidate Object & Save to Database
+        const newCandidate = {
+            name: parseData.parsed_data.name || "Uploaded Candidate",
+            email: parseData.parsed_data.email || "N/A",
+            role: roleTitle || "Full Stack Engineer",
+            job_description: jobDescription || "No job description provided",
+            score: parseFloat(scoreData.score) || 0,
+            status: "Review",
+            analysis: {
+                ...scoreData.analysis,
+                sub_scores: scoreData.sub_scores || { technical: 0, experience: 0, education: 0 }
+            },
+            extracted_data: parseData.parsed_data,
+            resume_url: publicUrl,
+            resume_name: file.name
+        }
+
+        const { data: insertedData, error: insertError } = await supabase
+            .from('candidates')
+            .insert([newCandidate])
+            .select()
+
+        if (insertError) {
+            console.error("Database insert error:", insertError)
+            throw new Error(`Failed to save candidate: ${insertError.message}. Make sure the 'candidates' table is created.`)
+        }
         
-        toast.success("Resume analyzed successfully!")
+        const savedCandidate = insertedData[0]
+        toast.success("Resume analyzed and saved successfully!")
 
         // 5. Redirect
-        router.push(`/candidates/${newCandidate.id}`)
+        router.push(`/candidates/${savedCandidate.id}`)
 
     } catch (error) {
         console.error("Analysis failed", error)
@@ -186,6 +213,8 @@ export default function UploadPage() {
                      id="role"
                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                      placeholder="e.g. Senior Product Designer"
+                     value={roleTitle}
+                     onChange={(e) => setRoleTitle(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
@@ -194,6 +223,8 @@ export default function UploadPage() {
                   id="jd"
                   placeholder="Paste JD requirements, skills, and qualifications here..."
                   className="min-h-[300px] resize-none"
+                  value={jobDescription}
+                  onChange={(e) => setJobDescription(e.target.value)}
                 />
               </div>
               <Button className="w-full" size="lg" onClick={startAnalysis} disabled={isAnalyzing || files.length === 0}>

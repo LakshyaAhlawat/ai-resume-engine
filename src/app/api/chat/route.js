@@ -13,16 +13,29 @@ export async function POST(request) {
       return NextResponse.json({ error: "No message provided" }, { status: 400 });
     }
 
+    // Clean candidate data for the prompt (remove large binary strings)
+    const cleanCandidate = { ...candidate };
+    delete cleanCandidate.resumeFile;
+
     const systemPrompt = `
-      You are an AI assistant helping a recruiter. You are analyzing the profile of a candidate named ${candidate.name}.
+      You are a precise and critical technical auditor analyzing a candidate named ${cleanCandidate.name}.
+      Your job is to provide objective, no-nonsense answers to the recruiter's questions. 
       
+      CRITICAL INSTRUCTIONS:
+      1. Do NOT be overly generous or "nice". 
+      2. If the candidate lacks a skill or experience, state it plainly. 
+      3. 'EXPERIENCE EVALUATION': When asked about skills or experience:
+         - Check 'Work Experience' first.
+         - If missing, analyze 'Projects' for technical depth and complexity.
+         - If both are missing, categorize the candidate as a 'Beginner' for that specific area.
+      4. Use "extracted_data" as your primary source of truth.
+      5. Strictly follow the user's request for formatting (e.g., bullet points, numbered lists).
+      6. Provide professional but direct technical assessments.
+
       Candidate Data:
-      ${JSON.stringify(candidate)}
+      ${JSON.stringify(cleanCandidate)}
 
       User Question: "${message}"
-
-      Answer the user's question based strictly on the candidate's data provided above. 
-      Be professional, concise, and helpful. If the information is not in the data, state that clearly.
     `;
 
     // 1. Try Groq (Llama 3) - High Priority for "Real AI"
@@ -51,19 +64,16 @@ export async function POST(request) {
         console.error("Gemini Error (Falling back):", e.message);
     }
 
-    // 3. Fallback Mock (Demo Mode)
-    const mockResponses = [
-        "Based on the candidate's profile, they have strong frontend skills, particularly in React.",
-        "Yes, the experience listed aligns well with the Senior Engineer role.",
-        "I noticed they have a gap in cloud infrastructure knowledge, but their coding scores are high.",
-        "Could you clarify which specific skill you are interested in?",
-         "This candidate has a solid educational background relevant to the job description."
-    ];
-    const randomResponse = mockResponses[Math.floor(Math.random() * mockResponses.length)];
+    // 3. Fallback (Detailed fallback based on data if AI fails)
+    let content = "I can see the candidate's profile, but I'm having trouble connecting to the AI brain right now. ";
+    if (cleanCandidate.extracted_data?.skills) {
+        content += `Based on the data, the candidate has skills in: ${cleanCandidate.extracted_data.skills.join(", ")}. `;
+    }
+    content += "How else can I help you today?";
     
     return NextResponse.json({ 
         role: "assistant", 
-        content: `(Demo Mode) ${randomResponse}` 
+        content: content
     });
 
   } catch (error) {

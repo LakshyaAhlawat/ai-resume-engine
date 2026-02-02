@@ -58,7 +58,7 @@ export async function POST(request) {
                 messages: [
                     { 
                         role: "system", 
-                        content: "You are a resume parser. Extract the following fields from the resume text provided: name, email, skills (array), experience (summary string), education (string). Return ONLY valid JSON." 
+                        content: "You are a world-class resume parser. Your goal is 100% accuracy across all resume formats (single-column, multi-column, functional, or creative).\n\nFIELDS TO EXTRACT:\n1. name, email, phone, location\n2. skills: A unified array of all detectable technical skills mentioned ANYWHERE in the resume (Projects, Experience, Education, or Skills sections).\n3. projects: Array of {title, description, technologies}\n4. experience: Array of {role, company, duration, key_points}\n5. education: string\n6. career_level: A string representing the candidate's seniority (e.g., 'Beginner', 'Junior (1-2 yrs)', 'Mid-Level (3-5 yrs)', 'Senior (5+ yrs)'). \n\nCRITICAL INSTRUCTIONS:\n- 'Experience Calculation': Calculate 'career_level' logically. Check 'Work Experience' first. If empty, analyze the 'Projects' section for technical depth. If both are thin, default to 'Beginner'. \n- 'Unified Skills': If a candidate mentions 'React' in a project but not in a skills list, it MUST be included in the 'skills' array.\n- 'Layout Resilience': The text may be jumbled from multi-column layouts. Reconstruct the logical context to ensure nothing is missed.\n- 'JSON Only': Return ONLY valid JSON." 
                     },
                     { role: "user", content: truncatedText }
                 ],
@@ -74,7 +74,6 @@ export async function POST(request) {
                 console.log("✅ GROQ PARSING SUCCESS - Returning real data");
                 console.log(`Parsed name: ${parsedData.name}`);
                 return NextResponse.json({
-                    id: Math.random().toString(36).substring(7),
                     filename: file.name,
                     parsed_data: parsedData
                 });
@@ -91,7 +90,6 @@ export async function POST(request) {
     // 3. Fallback Mock - Last Resort
     console.log("⚠️ Using fallback mock data");
     return NextResponse.json({
-      id: Math.random().toString(36).substring(7),
       filename: file.name,
       parsed_data: {
         name: "Demo Candidate (AI Extraction Failed)",
