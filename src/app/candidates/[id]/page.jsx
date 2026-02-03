@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
-import { CheckCircle2, XCircle, Download, Mail, Copy, ChevronLeft, Send, Bot, User, Trash2, Check, X } from "lucide-react"
+import { CheckCircle2, XCircle, Download, Mail, Copy, ChevronLeft, Send, Bot, User, Trash2, Check, X, TrendingUp, Sparkles, Brain, LayoutGrid, RotateCcw, Plus } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -39,6 +39,10 @@ export default function CandidatePage() {
   const [loadingRecommendation, setLoadingRecommendation] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [selectedPersona, setSelectedPersona] = useState('expert')
+  const [interviewRound, setInterviewRound] = useState('Technical')
+  const [addonInput, setAddonInput] = useState("")
+  const [loadingAddon, setLoadingAddon] = useState(false)
   
   // Load candidate from Supabase
   useEffect(() => {
@@ -131,17 +135,49 @@ export default function CandidatePage() {
     if (!candidate) return;
     setLoadingRecommendation(true);
     try {
-      const res = await fetch('/api/recommendations', {
+      const res = await fetch('/api/scoring', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          candidate, 
-          jobDescription: candidate.job_description || "Full Stack Engineer" 
+          candidate_data: candidate, 
+          jd: candidate.job_description || "Full Stack Engineer",
+          persona: selectedPersona
         })
       });
       const data = await res.json();
-      setRecommendation(data);
-      toast.success("AI Recommendation generated!");
+      
+      const { supabase } = await import("@/lib/supabase")
+      
+      const mergedAnalysis = {
+          ...data.analysis,
+          recommendation: data.recommendation,
+          confidence: data.confidence
+      }
+
+      // Update local recommendation summary state with the merged object
+      setRecommendation(mergedAnalysis);
+
+      // Persist the new analysis to Supabase
+      const { error: updateError } = await supabase
+          .from('candidates')
+          .update({ 
+              score: data.score,
+              analysis: mergedAnalysis 
+          })
+          .eq('id', candidate.id)
+
+      if (!updateError) {
+          // Update local candidate state so all tabs and charts refresh
+          setCandidate(prev => ({
+              ...prev,
+              score: data.score,
+              analysis: mergedAnalysis
+          }))
+          toast.success(`AI ${selectedPersona} Analysis generated and saved!`);
+      } else {
+          console.error("Database persistence failed:", updateError)
+          toast.error("Analysis generated but failed to save to database");
+      }
     } catch (error) {
       console.error("Failed to fetch recommendation:", error);
       toast.error("Failed to generate recommendation");
@@ -252,6 +288,62 @@ export default function CandidatePage() {
   const softSkills = candidate.analysis?.sub_scores?.soft_skills || 0
   const culture = candidate.analysis?.sub_scores?.culture || 0
 
+  const handleRequestAddon = async () => {
+    if (loadingAddon) return
+    setLoadingAddon(true)
+
+    try {
+      const res = await fetch('/api/interview/addon', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jd: candidate.job_description,
+          candidate_data: {
+            name: candidate.name,
+            skills: candidate.skills,
+            extracted_data: candidate.extracted_data
+          },
+          round: interviewRound,
+          user_query: addonInput
+        })
+      })
+
+      const newQuestion = await res.json()
+      
+      if (newQuestion.question) {
+        const updatedQuestions = [
+          ...(candidate.analysis?.interview_questions || []),
+          newQuestion
+        ]
+
+        const { supabase } = await import("@/lib/supabase")
+        const mergedAnalysis = {
+          ...candidate.analysis,
+          interview_questions: updatedQuestions
+        }
+
+        const { error } = await supabase
+          .from('candidates')
+          .update({ analysis: mergedAnalysis })
+          .eq('id', candidate.id)
+
+        if (!error) {
+          setCandidate(prev => ({
+            ...prev,
+            analysis: mergedAnalysis
+          }))
+          setAddonInput("")
+          toast.success("Extra question added!")
+        }
+      }
+    } catch (err) {
+      console.error("Addon Error:", err)
+      toast.error("Failed to generate extra question")
+    } finally {
+      setLoadingAddon(false)
+    }
+  }
+
   const chartData = [
       { name: "Technical", score: technical },
       { name: "Experience", score: experience },
@@ -331,17 +423,30 @@ export default function CandidatePage() {
           {/* AI Recommendations */}
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>AI Recommendation</CardTitle>
-                  <CardDescription>Intelligent hiring suggestion</CardDescription>
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>AI Analysis Settings</CardTitle>
+                      <CardDescription>Choose an AI persona for evaluation</CardDescription>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 p-1 bg-muted rounded-md mb-2">
+                    {['expert', 'hacker', 'architect'].map((p) => (
+                      <button 
+                        key={p}
+                        onClick={() => setSelectedPersona(p)}
+                        className={`flex-1 px-2 py-1 text-xs rounded-sm transition-all capitalize ${selectedPersona === p ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                  </div>
+                  {!recommendation && !candidate.analysis?.recommendation && !loadingRecommendation && (
+                    <Button size="sm" onClick={fetchRecommendation} className="w-full">
+                        <Sparkles className="mr-2 h-4 w-4" /> Analyze as {selectedPersona === 'expert' ? 'Expert Auditor' : selectedPersona === 'hacker' ? 'Startup Hacker' : 'System Architect'}
+                    </Button>
+                  )}
                 </div>
-                {!recommendation && !loadingRecommendation && (
-                  <Button size="sm" onClick={fetchRecommendation}>
-                    <Bot className="mr-2 h-4 w-4" /> Generate
-                  </Button>
-                )}
-              </div>
             </CardHeader>
             <CardContent>
               {loadingRecommendation ? (
@@ -349,28 +454,28 @@ export default function CandidatePage() {
                   <div className="flex justify-center"><Bot className="h-8 w-8 text-primary animate-bounce" /></div>
                   <p className="text-sm text-muted-foreground italic">AI Brain is thinking...</p>
                 </div>
-              ) : recommendation ? (
+              ) : (recommendation || candidate.analysis?.recommendation) ? (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <Badge className={
-                      recommendation.recommendation === 'Strong Hire' ? 'bg-green-600' :
-                      recommendation.recommendation === 'Hire' ? 'bg-blue-600' :
-                      recommendation.recommendation === 'Maybe' ? 'bg-yellow-600' :
+                      (recommendation || candidate.analysis).recommendation === 'Strong Hire' ? 'bg-green-600' :
+                      (recommendation || candidate.analysis).recommendation === 'Hire' ? 'bg-blue-600' :
+                      (recommendation || candidate.analysis).recommendation === 'Maybe' ? 'bg-yellow-600' :
                       'bg-red-600'
                     }>
-                      {recommendation.recommendation}
+                      {(recommendation || candidate.analysis).recommendation}
                     </Badge>
                     <span className="text-sm text-muted-foreground">
-                      {recommendation.confidence}% confident
+                      {(recommendation || candidate.analysis).confidence}% confident
                     </span>
                   </div>
-                  <p className="text-sm">{recommendation.reasoning}</p>
+                  <p className="text-sm">{(recommendation || candidate.analysis).reasoning}</p>
                   
-                  {recommendation.highlights && recommendation.highlights.length > 0 && (
+                  {(recommendation || candidate.analysis).highlights && (recommendation || candidate.analysis).highlights.length > 0 && (
                     <div>
                       <p className="text-sm font-medium mb-2">Key Highlights:</p>
                       <ul className="text-sm space-y-1">
-                        {recommendation.highlights.map((h, i) => (
+                        {(recommendation || candidate.analysis).highlights.map((h, i) => (
                           <li key={i} className="flex items-start gap-2">
                             <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5" />
                             <span>{h}</span>
@@ -380,11 +485,11 @@ export default function CandidatePage() {
                     </div>
                   )}
 
-                  {recommendation.red_flags && recommendation.red_flags.length > 0 && (
+                  {(recommendation || candidate.analysis).red_flags && (recommendation || candidate.analysis).red_flags.length > 0 && (
                     <div>
                       <p className="text-sm font-medium mb-2">Red Flags:</p>
                       <ul className="text-sm space-y-1">
-                        {recommendation.red_flags.map((f, i) => (
+                        {(recommendation || candidate.analysis).red_flags.map((f, i) => (
                           <li key={i} className="flex items-start gap-2">
                             <XCircle className="h-4 w-4 text-red-600 mt-0.5" />
                             <span>{f}</span>
@@ -394,20 +499,20 @@ export default function CandidatePage() {
                     </div>
                   )}
 
-                  <Button variant="outline" size="sm" className="w-full mt-2" onClick={fetchRecommendation}>
-                    Regenerate Analysis
-                  </Button>
-
-                  {recommendation.candidate_feedback && (
+                  {(recommendation || candidate.analysis).candidate_feedback && (
                     <div className="mt-4 p-4 rounded-lg bg-primary/5 border border-primary/10">
                       <p className="text-sm font-semibold mb-2 flex items-center text-primary">
                         <Bot className="mr-2 h-4 w-4" /> Growth Focused Feedback
                       </p>
                       <p className="text-sm italic text-muted-foreground leading-relaxed">
-                        "{recommendation.candidate_feedback}"
+                        "{(recommendation || candidate.analysis).candidate_feedback}"
                       </p>
                     </div>
                   )}
+
+                  <Button variant="outline" size="sm" className="w-full mt-4" onClick={fetchRecommendation}>
+                    <RotateCcw className="mr-2 h-3 w-3" /> Regenerate Analysis
+                  </Button>
                 </div>
               ) : (
                 <div className="text-center py-6 border-2 border-dashed rounded-lg">
@@ -435,7 +540,7 @@ export default function CandidatePage() {
           </Card>
 
           {/* Fairness Audit */}
-          {candidate.analysis?.fairness_audit && (
+          {(recommendation || candidate.analysis)?.fairness_audit && (
             <Card className="border-primary/20 bg-primary/5">
                 <CardHeader>
                     <div className="flex items-center gap-2">
@@ -448,17 +553,17 @@ export default function CandidatePage() {
                     <div className="flex justify-between items-center text-sm">
                         <span className="text-muted-foreground">Evidence Density</span>
                         <Badge variant="secondary" className="capitalize">
-                            {candidate.analysis.fairness_audit.evidence_density}
+                            {(recommendation || candidate.analysis).fairness_audit.evidence_density}
                         </Badge>
                     </div>
                     <div className="flex justify-between items-center text-sm">
                         <span className="text-muted-foreground">Seniority Alignment</span>
                         <Badge variant="outline" className="capitalize">
-                            {candidate.analysis.fairness_audit.seniority_alignment}
+                            {(recommendation || candidate.analysis).fairness_audit.seniority_alignment}
                         </Badge>
                     </div>
                     <div className="p-3 rounded bg-card border text-xs text-muted-foreground italic">
-                        "{candidate.analysis.fairness_audit.notes}"
+                        "{(recommendation || candidate.analysis).fairness_audit.notes}"
                     </div>
                 </CardContent>
             </Card>
@@ -535,9 +640,12 @@ export default function CandidatePage() {
                 <Tabs defaultValue="report" className="h-full flex flex-col">
                     <div className="flex items-center justify-between mb-4">
                         <TabsList>
-                            <TabsTrigger value="report">AI Report</TabsTrigger>
+                            <TabsTrigger value="report">Assessment</TabsTrigger>
+                            <TabsTrigger value="interview" className="flex items-center gap-2">
+                                <Brain className="h-4 w-4" /> Interview Simulator
+                            </TabsTrigger>
                             <TabsTrigger value="chat" className="flex items-center gap-2">
-                                <Bot className="h-4 w-4" /> Chat with Candidate
+                                <Bot className="h-4 w-4" /> AI Chat
                             </TabsTrigger>
                         </TabsList>
                     </div>
@@ -555,7 +663,7 @@ export default function CandidatePage() {
                                         Key Strengths
                                     </h3>
                                     <ul className="space-y-2 text-sm text-muted-foreground list-disc pl-5">
-                                        {candidate.analysis?.strengths?.map((s, i) => <li key={i}>{s}</li>)}
+                                        {(recommendation || candidate.analysis)?.strengths?.map((s, i) => <li key={i}>{s}</li>)}
                                     </ul>
                                 </div>
 
@@ -567,7 +675,7 @@ export default function CandidatePage() {
                                         Potential Gaps
                                     </h3>
                                     <ul className="space-y-2 text-sm text-muted-foreground list-disc pl-5">
-                                        {candidate.analysis?.weaknesses?.map((w, i) => <li key={i}>{w}</li>)}
+                                        {(recommendation || candidate.analysis)?.weaknesses?.map((w, i) => <li key={i}>{w}</li>)}
                                     </ul>
                                 </div>
 
@@ -630,6 +738,36 @@ export default function CandidatePage() {
                                     </>
                                 )}
 
+                                {(recommendation || candidate.analysis)?.career_projection && (
+                                    <>
+                                        <div>
+                                            <h3 className="font-semibold mb-4 flex items-center">
+                                                <TrendingUp className="mr-2 h-5 w-5 text-primary" />
+                                                Career Trajectory Projection
+                                            </h3>
+                                            <div className="p-4 rounded-lg bg-primary/5 border border-primary/10">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <span className="text-sm font-medium">Growth Velocity:</span>
+                                                    <Badge variant="secondary" className="capitalize">{(recommendation || candidate.analysis).career_projection.trajectory}</Badge>
+                                                </div>
+                                                <div className="text-sm mb-3">
+                                                    <span className="font-medium">Potential Next Role:</span>
+                                                    <p className="text-primary mt-1">{(recommendation || candidate.analysis).career_projection.potential_role}</p>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Growth Focus Areas:</span>
+                                                    <div className="flex flex-wrap gap-2 pt-1">
+                                                        {(recommendation || candidate.analysis).career_projection.growth_areas.map((area, idx) => (
+                                                            <Badge key={idx} variant="outline" className="text-[10px]">{area}</Badge>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <Separator />
+                                    </>
+                                )}
+
                                 <div>
                                     <h3 className="font-semibold mb-4">Skill Match Visualization</h3>
                                     <div className="h-[300px] w-full">
@@ -648,6 +786,90 @@ export default function CandidatePage() {
                                         </ResponsiveContainer>
                                     </div>
                                 </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
+                    <TabsContent value="interview" className="flex-1 mt-0">
+                        <Card className="h-full">
+                            <CardHeader className="pb-3">
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                    <div>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <Sparkles className="h-5 w-5 text-primary" />
+                                            Interview Preparation Simulator
+                                        </CardTitle>
+                                        <CardDescription>Generated specifically for {candidate.name}</CardDescription>
+                                    </div>
+                                    <div className="flex gap-1 p-1 bg-muted rounded-lg w-fit">
+                                        {['Technical', 'Culture', 'Systems'].map((round) => (
+                                            <button
+                                                key={round}
+                                                onClick={() => setInterviewRound(round)}
+                                                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${interviewRound === round ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                                            >
+                                                {round}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="space-y-6">
+                                {(recommendation || candidate.analysis)?.interview_questions ? (
+                                    <div className="grid gap-4">
+                                        {(recommendation || candidate.analysis).interview_questions
+                                            .filter(q => (q.round || 'Technical') === interviewRound && q.question?.trim())
+                                            .map((q, i) => (
+                                                <div key={i} className="p-4 rounded-lg border bg-muted/20 hover:bg-muted/40 transition-colors">
+                                                    <p className="font-medium text-sm text-foreground leading-relaxed">
+                                                        <span className="text-primary mr-2">Q{i+1}:</span>
+                                                        {q.question}
+                                                    </p>
+                                                    <div className="mt-3 p-3 rounded bg-background/50 border border-dashed border-primary/20">
+                                                        <p className="text-xs font-semibold text-primary/70 uppercase tracking-tighter mb-1">Look for in the answer:</p>
+                                                        <p className="text-xs text-muted-foreground italic leading-relaxed">
+                                                            {q.expected_answer}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        {(recommendation || candidate.analysis).interview_questions.filter(q => (q.round || 'Technical') === interviewRound && q.question?.trim()).length === 0 && (
+                                            <div className="text-center py-10 text-sm text-muted-foreground">
+                                                No questions available for this round. Try regenerating the analysis.
+                                            </div>
+                                        )}
+
+                                        <div className="pt-6 border-t mt-4">
+                                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3 flex items-center">
+                                                <Plus className="mr-1 h-3 w-3" /> Request Custom Add-on
+                                            </p>
+                                            <div className="flex gap-2">
+                                                <Input 
+                                                    placeholder={`Ask for a specific ${interviewRound} topic...`} 
+                                                    value={addonInput}
+                                                    onChange={(e) => setAddonInput(e.target.value)}
+                                                    className="bg-background text-sm"
+                                                    disabled={loadingAddon}
+                                                />
+                                                <Button size="sm" onClick={handleRequestAddon} disabled={loadingAddon || !addonInput.trim()}>
+                                                    {loadingAddon ? <RotateCcw className="h-4 w-4 animate-spin" /> : "Request"}
+                                                </Button>
+                                            </div>
+                                            <p className="text-[10px] text-muted-foreground mt-2 italic">
+                                                Tip: Try "Ask me about a React hook" or "Generate a harder DSA problem".
+                                            </p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-20 flex flex-col items-center gap-4">
+                                        <div className="p-4 rounded-full bg-primary/5">
+                                            <Brain className="h-10 w-10 text-primary/40" />
+                                        </div>
+                                        <p className="text-muted-foreground text-sm max-w-[250px]">
+                                            Analysis needed. Use the <strong>Analyze</strong> button in the sidebar to generate custom interview questions.
+                                        </p>
+                                    </div>
+                                )}
                             </CardContent>
                         </Card>
                     </TabsContent>

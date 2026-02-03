@@ -11,7 +11,8 @@ import {
   Users, 
   BarChart, 
   Settings, 
-  Bot 
+  Bot,
+  BookOpen 
 } from "lucide-react"
 
 const sidebarNavItems = [
@@ -77,7 +78,27 @@ export function Sidebar() {
             <h4 className="mb-2 px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
               Settings
             </h4>
-            <Button variant="ghost" className="w-full justify-start" asChild>
+            <Button 
+                variant={pathname === "/docs" ? "secondary" : "ghost"} 
+                className={cn(
+                    "w-full justify-start",
+                    pathname === "/docs" ? "bg-primary/10 text-primary hover:bg-primary/15" : ""
+                )}
+                asChild
+            >
+              <Link href="/docs">
+                <BookOpen className="mr-2 h-4 w-4" />
+                User Guide
+              </Link>
+            </Button>
+            <Button 
+                variant={pathname === "/settings" ? "secondary" : "ghost"} 
+                className={cn(
+                    "w-full justify-start",
+                    pathname === "/settings" ? "bg-primary/10 text-primary hover:bg-primary/15" : ""
+                )}
+                asChild
+            >
               <Link href="/settings">
                 <Settings className="mr-2 h-4 w-4" />
                 Settings

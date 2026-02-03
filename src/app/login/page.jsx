@@ -9,11 +9,20 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 
 import { useAuth } from "@/lib/auth"
+import { toast } from "sonner"
+import { useEffect } from "react"
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
-  const { login } = useAuth()
+  const { user, login, signUp, loading } = useAuth()
+  
+  // Auto-redirect if already logged in
+  useEffect(() => {
+    if (!loading && user) {
+      router.push("/dashboard")
+    }
+  }, [user, loading, router])
   
   const [isSignUp, setIsSignUp] = useState(false)
   const [email, setEmail] = useState("")
@@ -23,16 +32,22 @@ export default function LoginPage() {
     event.preventDefault()
     setIsLoading(true)
     
-    // Simulate network delay for "real feel"
-    setTimeout(() => {
-        const success = login(email, password)
-        if (success) {
-            router.push("/dashboard")
+    try {
+        if (isSignUp) {
+            await signUp(email, password)
+            toast.success("Account created! You can now sign in.")
+            setIsSignUp(false)
         } else {
-            setIsLoading(false)
-            // In a real app we'd show a toast error here
+            await login(email, password)
+            toast.success("Welcome back!")
+            router.push("/dashboard")
         }
-    }, 1500)
+    } catch (error) {
+        console.error("Auth error:", error)
+        toast.error(error.message || "Authentication failed")
+    } finally {
+        setIsLoading(false)
+    }
   }
 
   return (
@@ -40,10 +55,10 @@ export default function LoginPage() {
       <div className="relative hidden h-full flex-col bg-muted p-10 text-white lg:flex dark:border-r">
         <div className="absolute inset-0 bg-zinc-900" />
         <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1590069261209-f8e9b8642343?auto=format&fit=crop&q=80&w=2676&ixlib=rb-4.0.3')] bg-cover bg-center opacity-20" />
-        <div className="relative z-20 flex items-center text-lg font-medium">
+        <Link href="/" className="relative z-20 flex items-center text-lg font-medium hover:text-primary transition-colors">
           <Bot className="mr-2 h-6 w-6 text-primary" />
           ResumeAI Engine
-        </div>
+        </Link>
         <div className="relative z-20 mt-auto">
           <blockquote className="space-y-2">
             <p className="text-lg">
@@ -54,6 +69,11 @@ export default function LoginPage() {
         </div>
       </div>
       <div className="lg:p-8">
+        <div className="absolute right-4 top-4 md:right-8 md:top-8">
+          <Button variant="ghost" asChild>
+            <Link href="/">Back to Website</Link>
+          </Button>
+        </div>
         <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
           <div className="flex flex-col space-y-2 text-center">
             <h1 className="text-2xl font-semibold tracking-tight">

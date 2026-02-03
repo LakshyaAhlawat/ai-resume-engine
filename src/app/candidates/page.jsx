@@ -7,15 +7,20 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Input } from "@/components/ui/input"
-import { MoreHorizontal, Search, Filter, ArrowUpRight, Download } from "lucide-react"
+import { MoreHorizontal, Search, Filter, ArrowUpRight, Download, Swords, History, Check } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
+import { toast } from "sonner"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import { useAuth } from "@/lib/auth"
 
 export default function CandidatesPage() {
+  const router = useRouter()
   const [candidates, setCandidates] = useState([])
   const [search, setSearch] = useState("")
   const [loading, setLoading] = useState(true)
+  const [selectedIds, setSelectedIds] = useState([])
 
   useEffect(() => {
     const fetchCandidates = async () => {
@@ -48,6 +53,20 @@ export default function CandidatesPage() {
     c.name?.toLowerCase().includes(search.toLowerCase()) || 
     c.role?.toLowerCase().includes(search.toLowerCase())
   )
+
+  const toggleSelection = (id) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    )
+  }
+
+  const startBattle = () => {
+    if (selectedIds.length !== 2) {
+        toast.error("Select exactly 2 candidates for Battle Mode!")
+        return
+    }
+    router.push(`/candidates/compare?ids=${selectedIds.join(',')}`)
+  }
 
   return (
     <AppShell title="Candidates">
@@ -89,6 +108,7 @@ export default function CandidatesPage() {
                     <Table>
                     <TableHeader>
                         <TableRow>
+                        <TableHead className="w-12"></TableHead>
                         <TableHead>Candidate</TableHead>
                         <TableHead>Role</TableHead>
                         <TableHead>Match Analysis</TableHead>
@@ -100,6 +120,13 @@ export default function CandidatesPage() {
                     <TableBody>
                         {filteredCandidates.map((candidate) => (
                         <TableRow key={candidate.id}>
+                            <TableCell>
+                                <Checkbox 
+                                    checked={selectedIds.includes(candidate.id)} 
+                                    onCheckedChange={() => toggleSelection(candidate.id)}
+                                    disabled={selectedIds.length >= 2 && !selectedIds.includes(candidate.id)}
+                                />
+                            </TableCell>
                             <TableCell>
                                 <div className="flex flex-col">
                                     <span className="font-medium">{candidate.name || "Unknown"}</span>
@@ -148,6 +175,29 @@ export default function CandidatesPage() {
                     )}
                 </CardContent>
             </Card>
+
+            {selectedIds.length > 0 && (
+                <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-5 duration-300">
+                    <Card className="shadow-2xl border-primary/20 bg-primary/5 backdrop-blur-md">
+                        <CardContent className="p-4 flex items-center gap-6">
+                            <div className="flex items-center gap-2">
+                                <Swords className="h-5 w-5 text-primary" />
+                                <span className="text-sm font-semibold whitespace-nowrap">
+                                    {selectedIds.length} Candidate{selectedIds.length > 1 ? 's' : ''} Selected
+                                </span>
+                            </div>
+                            <div className="flex gap-2">
+                                <Button variant="ghost" size="sm" onClick={() => setSelectedIds([])}>
+                                    Clear
+                                </Button>
+                                <Button size="sm" onClick={startBattle} disabled={selectedIds.length !== 2} className="shadow-lg">
+                                    Enter Battle Arena <ArrowUpRight className="ml-2 h-4 w-4" />
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
         </div>
     </AppShell>
   )

@@ -8,15 +8,29 @@ const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_
 
 export async function POST(request) {
   try {
-    const { jd, candidate_data } = await request.json();
+    const { jd, candidate_data, persona = 'expert' } = await request.json();
+
+    const personaDescriptions = {
+        expert: "You are an Expert Auditor. You are skeptical, precise, and prioritize deep technical evidence and proven seniority. Your tone is professional and slightly critical.",
+        hacker: "You are a Startup Hacker. You prioritize speed, versatility, and candidates who have built real things from scratch. Your tone is energetic, informal, and moves fast.",
+        architect: "You are a System Architect. You prioritize scalability, clean code, documentation, and long-term architectural thinking. Your tone is methodical and focused on the 'big picture'."
+    };
+
+    const currentPersona = personaDescriptions[persona] || personaDescriptions.expert;
 
     const prompt = `
+      PERSONA: ${currentPersona}
+
       CRITICAL EVALUATION RULES:
       1. 'GLOBAL SKILL MATCHING': Scan all sections (Projects, Work Experience, Skills List). If a candidate has used a tech in a project, they HAVE the skill. 
       2. 'EVIDENCE PEERING': Prioritize hands-on work in 'projects' or 'experience' over simple keyword strings.
-      3. 'FAIRNESS AUDIT': Benchmark the candidate against the seniority level of the JD. Identify "keyword stuffing" (listing skills without project evidence).
-      4. 'GENUINE ANALYSIS': Do not be overly generous. If there is a gap, highlight it. If a project is impressive, credit it.
-      5. 'MULTI-LEVEL SCORING': Break down the evaluation into specific dimensions: Technical, Experience, Education, Soft Skills, and Culture Alignment.
+      3. 'FAIRNESS AUDIT': Benchmark the candidate against the seniority level of the JD.
+      4. 'GENUINE ANALYSIS': Be highly opinionated. If a hacker, prioritize builds. If an auditor, prioritize proof.
+      5. 'MULTI-ROUND INTERVIEW PREP': Generate 15 questions in total, exactly 5 for each of the following rounds:
+         - 'Technical': Focus on core engineering, logic, and 'DSA (Data Structures & Algorithms)'.
+         - 'Culture': Behavioral insights, conflict resolution, and growth mindset.
+         - 'Systems': Architecture, scalability, database design, and high-level patterns.
+      6. 'POTENTIAL PROJECTION': Predict where this candidate will be in 3-5 years.
 
       Job Description:
       "${jd}"
@@ -24,26 +38,35 @@ export async function POST(request) {
       Candidate Profile:
       ${JSON.stringify(candidate_data)}
 
-      Output your analysis in strictly valid JSON format.
+      Output your analysis in strictly valid JSON format. Ensure the JSON is complete and not truncated.
       Structure:
       {
-        "score": number (Overall calculated average 0-100),
-        "sub_scores": {
-          "technical": number (0-100),
-          "experience": number (0-100),
-          "education": number (0-100),
-          "soft_skills": number (0-100),
-          "culture": number (0-100)
-        },
-        "fairness_audit": {
-          "evidence_density": "high|medium|low",
-          "seniority_alignment": "junior|mid|senior|mismatch",
-          "notes": "Direct comments on the genuineness of the claims"
-        },
+        "score": number,
+        "recommendation": "Strong Hire|Hire|Maybe|Rejected",
+        "confidence": number,
         "analysis": {
-          "strengths": ["Evidence-based Strength 1", "Evidence-based Strength 2"],
-          "weaknesses": ["Specific Missing Requirement 1", "Specific Gap 2"],
-          "reasoning": "A direct, auditor-style explanation of the final decision."
+          "sub_scores": {
+            "technical": number, "experience": number, "education": number, "soft_skills": number, "culture": number
+          },
+          "strengths": ["string"],
+          "weaknesses": ["string"],
+          "reasoning": "A detailed 3-5 sentence analysis in your persona.",
+          "highlights": ["string"],
+          "red_flags": ["string"],
+          "candidate_feedback": "string",
+          "fairness_audit": {
+            "evidence_density": "high|medium|low",
+            "seniority_alignment": "junior|mid|senior|mismatch",
+            "notes": "string"
+          },
+          "interview_questions": [
+             { "round": "Technical|Culture|Systems", "question": "string", "expected_answer": "string" }
+          ],
+          "career_projection": {
+             "trajectory": "fast|steady|plateau",
+             "potential_role": "string",
+             "growth_areas": ["string"]
+          }
         }
       }
     `;
@@ -53,7 +76,7 @@ export async function POST(request) {
         try {
             console.log("Attempting Groq Scoring...");
             const completion = await groq.chat.completions.create({
-                messages: [{ role: "system", content: "You are a precise technical auditor. You provide objective, critical assessments." }, { role: "user", content: prompt }],
+                messages: [{ role: "system", content: currentPersona }, { role: "user", content: prompt }],
                 model: "llama-3.3-70b-versatile",
                 response_format: { type: "json_object" }
             });

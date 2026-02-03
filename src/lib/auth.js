@@ -1,30 +1,81 @@
+
 "use client"
 
-export const useAuth = () => {
-    // Removed internal router usage to prevent initialization conflicts
+import { supabase } from "./supabase"
+import { useState, useEffect, createContext, useContext } from "react"
 
-    const login = (email, password) => {
-        // Mock validation
-        if (email && password) {
-            localStorage.setItem('isAuthenticated', 'true')
-            localStorage.setItem('userEmail', email)
-            return true
+const AuthContext = createContext({
+    user: null,
+    loading: true,
+    login: async () => {},
+    signUp: async () => {},
+    logout: async () => {},
+    updateProfile: async () => {},
+    isAuthenticated: () => false
+})
+
+export const AuthProvider = ({ children }) => {
+    const [user, setUser] = useState(null)
+    const [loading, setLoading] = useState(true)
+
+    useEffect(() => {
+        // Initialize user
+        const initUser = async () => {
+            const { data: { session } } = await supabase.auth.getSession()
+            setUser(session?.user ?? null)
+            setLoading(false)
         }
-        return false
+
+        initUser()
+
+        // Listen for changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            setUser(session?.user ?? null)
+            setLoading(false)
+        })
+
+        return () => subscription.unsubscribe()
+    }, [])
+
+    const login = async (email, password) => {
+        const { data, error } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+        })
+        if (error) throw error
+        return data
     }
 
-    const logout = () => {
-        localStorage.removeItem('isAuthenticated')
-        localStorage.removeItem('userEmail')
-        return true // Return success status instead of redirecting
+    const signUp = async (email, password) => {
+        const { data, error } = await supabase.auth.signUp({
+            email,
+            password,
+        })
+        if (error) throw error
+        return data
     }
 
-    const isAuthenticated = () => {
-        if (typeof window !== 'undefined') {
-            return localStorage.getItem('isAuthenticated') === 'true'
-        }
-        return false
+    const logout = async () => {
+        const { error } = await supabase.auth.signOut()
+        if (error) throw error
     }
 
-    return { login, logout, isAuthenticated }
+    const updateProfile = async (updates) => {
+        const { data, error } = await supabase.auth.updateUser({
+            data: updates
+        })
+        if (error) throw error
+        setUser(data.user)
+        return data.user
+    }
+
+    const isAuthenticated = () => !!user
+
+    return (
+        <AuthContext.Provider value={{ user, loading, login, signUp, logout, updateProfile, isAuthenticated }}>
+            {children}
+        </AuthContext.Provider>
+    )
 }
+
+export const useAuth = () => useContext(AuthContext)

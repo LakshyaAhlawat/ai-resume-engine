@@ -19,32 +19,84 @@ import { useRouter } from "next/navigation"
 
 export default function SettingsPage() {
   const { setTheme, theme } = useTheme()
-  const { logout } = useAuth()
+  const { user, logout, updateProfile } = useAuth()
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [activeTab, setActiveTab] = useState("account")
   const [profile, setProfile] = useState({
-    name: "Recruiter Admin",
-    email: "admin@company.com",
-    role: "Senior Recruiter"
+    name: "",
+    email: "",
+    role: ""
   })
 
   useEffect(() => {
     setMounted(true)
-  }, [])
+    if (user) {
+      setProfile({
+        name: user.user_metadata?.full_name || "",
+        email: user.email || "",
+        role: user.user_metadata?.role || ""
+      })
+    }
+  }, [user])
 
   const handleLogout = () => {
     logout()
     router.push('/login')
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setLoading(true)
-    setTimeout(() => {
-        setLoading(false)
+    try {
+        await updateProfile({
+            full_name: profile.name,
+            role: profile.role
+        })
         toast.success("Settings saved successfully")
-    }, 1000)
+    } catch (error) {
+        console.error("Save Error:", error)
+        toast.error("Failed to save settings")
+    } finally {
+        setLoading(false)
+    }
+  }
+
+  const handleAvatarChange = async (e) => {
+    if (e.target.files && e.target.files[0]) {
+      setLoading(true)
+      try {
+          const file = e.target.files[0]
+          const { supabase } = await import("@/lib/supabase")
+          const fileExt = file.name.split('.').pop()
+          const fileName = `${user.id}-${Math.random().toString(36).substring(2, 9)}.${fileExt}`
+          const filePath = fileName
+
+          // 1. Upload to Storage
+          const { error: uploadError } = await supabase.storage
+              .from('avatars') 
+              .upload(filePath, file)
+
+          if (uploadError) throw uploadError
+
+          // 2. Get Public URL
+          const { data: { publicUrl } } = supabase.storage
+              .from('avatars')
+              .getPublicUrl(filePath)
+
+          // 3. Update Profile Metadata
+          await updateProfile({
+              avatar_url: publicUrl
+          })
+          
+          toast.success("Avatar updated successfully")
+      } catch (error) {
+          console.error("Avatar Upload Error:", error)
+          toast.error("Failed to upload avatar. Check storage permissions.")
+      } finally {
+          setLoading(false)
+      }
+    }
   }
 
   if (!mounted) return null
@@ -92,10 +144,22 @@ export default function SettingsPage() {
                         <CardContent className="space-y-6">
                             <div className="flex items-center gap-6">
                                 <Avatar className="h-24 w-24 border-2 border-primary/10">
-                                    <AvatarFallback className="text-2xl bg-primary/10 text-primary">RC</AvatarFallback>
+                                    <AvatarImage src={user?.user_metadata?.avatar_url} />
+                                    <AvatarFallback className="text-2xl bg-primary/10 text-primary">
+                                        {profile.name.split(" ").map(n => n[0]).join("").toUpperCase().substring(0, 2) || "RC"}
+                                    </AvatarFallback>
                                 </Avatar>
                                 <div className="space-y-2">
-                                     <Button variant="outline" size="sm">Change Avatar</Button>
+                                     <input 
+                                        type="file" 
+                                        id="avatar-upload" 
+                                        className="hidden" 
+                                        accept="image/*"
+                                        onChange={handleAvatarChange}
+                                     />
+                                     <Button variant="outline" size="sm" onClick={() => document.getElementById('avatar-upload').click()} disabled={loading}>
+                                        {loading ? "Processing..." : "Change Avatar"}
+                                     </Button>
                                      <p className="text-xs text-muted-foreground">JPG, GIF or PNG. Max 1MB.</p>
                                 </div>
                             </div>
