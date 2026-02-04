@@ -12,7 +12,8 @@ import {
   BarChart, 
   Settings, 
   Bot,
-  BookOpen 
+  BookOpen,
+  Sparkles
 } from "lucide-react"
 
 const sidebarNavItems = [
@@ -35,6 +36,11 @@ const sidebarNavItems = [
     title: "Analytics",
     href: "/analytics",
     icon: BarChart,
+  },
+  {
+    title: "JD Engine",
+    href: "/jd-engine",
+    icon: Sparkles,
   },
 ]
 

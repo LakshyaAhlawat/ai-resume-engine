@@ -8,7 +8,7 @@ const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_
 
 export async function POST(request) {
   try {
-    const { jd, candidate_data, persona = 'expert' } = await request.json();
+    const { jd, candidate_data, persona = 'expert', company_culture = 'Velocity, Transparency, Extreme Ownership' } = await request.json();
 
     const personaDescriptions = {
         expert: "You are an Expert Auditor. You are skeptical, precise, and prioritize deep technical evidence and proven seniority. Your tone is professional and slightly critical.",
@@ -30,7 +30,8 @@ export async function POST(request) {
          - 'Technical': Focus on core engineering, logic, and 'DSA (Data Structures & Algorithms)'.
          - 'Culture': Behavioral insights, conflict resolution, and growth mindset.
          - 'Systems': Architecture, scalability, database design, and high-level patterns.
-      6. 'POTENTIAL PROJECTION': Predict where this candidate will be in 3-5 years.
+      6. 'CULTURE RADAR': Benchmark the candidate against these company values: "${company_culture}". Rate their alignment from 0-100 for each value.
+      7. 'POTENTIAL PROJECTION': Predict where this candidate will be in 3-5 years.
 
       Job Description:
       "${jd}"
@@ -61,6 +62,9 @@ export async function POST(request) {
           },
           "interview_questions": [
              { "round": "Technical|Culture|Systems", "question": "string", "expected_answer": "string" }
+          ],
+          "culture_radar": [
+            { "value": "string", "score": number }
           ],
           "career_projection": {
              "trajectory": "fast|steady|plateau",

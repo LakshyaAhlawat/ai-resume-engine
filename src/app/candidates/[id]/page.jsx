@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
-import { CheckCircle2, XCircle, Download, Mail, Copy, ChevronLeft, Send, Bot, User, Trash2, Check, X, TrendingUp, Sparkles, Brain, LayoutGrid, RotateCcw, Plus } from "lucide-react"
+import { CheckCircle2, XCircle, Download, Mail, Copy, ChevronLeft, Send, Bot, User, Trash2, Check, X, TrendingUp, Sparkles, Brain, LayoutGrid, RotateCcw, Plus, Github, Linkedin, ExternalLink, Coins, Eye, MonitorPlay, Target, Rocket } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -30,6 +30,14 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  Cell,
+  Radar,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  PieChart,
+  Pie
 } from "recharts"
 
 export default function CandidatePage() {
@@ -43,6 +51,24 @@ export default function CandidatePage() {
   const [interviewRound, setInterviewRound] = useState('Technical')
   const [addonInput, setAddonInput] = useState("")
   const [loadingAddon, setLoadingAddon] = useState(false)
+
+  // GenAI Expansion States
+  const [outreachData, setOutreachData] = useState(null)
+  const [loadingOutreach, setLoadingOutreach] = useState(false)
+  const [ghostChatInput, setGhostChatInput] = useState("")
+  const [ghostChatMessages, setGhostChatMessages] = useState([])
+  const [ghostChatLoading, setGhostChatLoading] = useState(false)
+  const [researchData, setResearchData] = useState(null)
+  const [loadingResearch, setLoadingResearch] = useState(false)
+  const [analysisVideo, setAnalysisVideo] = useState(null)
+  const [loadingVideo, setLoadingVideo] = useState(false)
+  const [videoTranscript, setVideoTranscript] = useState("")
+  const [salaryData, setSalaryData] = useState(null)
+  const [loadingSalary, setLoadingSalary] = useState(false)
+  const [roleArchitectData, setRoleArchitectData] = useState(null)
+  const [loadingRoleArchitect, setLoadingRoleArchitect] = useState(false)
+  const [onboardingData, setOnboardingData] = useState(null)
+  const [loadingOnboarding, setLoadingOnboarding] = useState(false)
   
   // Load candidate from Supabase
   useEffect(() => {
@@ -344,6 +370,174 @@ export default function CandidatePage() {
     }
   }
 
+  // GenAI Expansion Handlers
+  const handleGenerateOutreach = async (platform = 'linkedin', tone = 'professional') => {
+    setLoadingOutreach(true)
+    try {
+      const res = await fetch('/api/outreach', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jd: candidate.job_description,
+          candidate_name: candidate.name,
+          candidate_data: candidate.extracted_data,
+          platform,
+          tone
+        })
+      })
+      const data = await res.json()
+      setOutreachData(data)
+      toast.success("Personalized outreach generated!")
+    } catch (err) {
+      toast.error("Failed to generate outreach")
+    } finally {
+      setLoadingOutreach(false)
+    }
+  }
+
+  const handleSendGhostMessage = async () => {
+    if (!ghostChatInput.trim()) return
+    const userMsg = { role: "user", content: ghostChatInput }
+    setGhostChatMessages(prev => [...prev, userMsg])
+    setGhostChatInput("")
+    setGhostChatLoading(true)
+
+    try {
+      const res = await fetch('/api/chat/candidate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: userMsg.content,
+          history: ghostChatMessages.map(m => ({ 
+            role: m.role === 'user' ? 'user' : 'model', 
+            parts: [{ text: m.content }] 
+          })),
+          candidate_name: candidate.name,
+          candidate_data: candidate.extracted_data,
+          jd: candidate.job_description
+        })
+      })
+      const data = await res.json()
+      setGhostChatMessages(prev => [...prev, { role: "assistant", content: data.text }])
+    } catch (err) {
+      toast.error("Candidate ghost is currently silent.")
+    } finally {
+      setGhostChatLoading(false)
+    }
+  }
+
+  const handleDeepResearch = async () => {
+    const url = prompt("Enter Portfolio or GitHub URL:")
+    if (!url) return
+    setLoadingResearch(true)
+    try {
+        const res = await fetch('/api/analyze/portfolio', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                portfolio_url: url,
+                candidate_data: candidate.extracted_data
+            })
+        })
+        const data = await res.json()
+        setResearchData(data)
+        toast.success("GitHub/Portfolio depth analysis complete!")
+    } catch (err) {
+        toast.error("Research failed")
+    } finally {
+        setLoadingResearch(true) // Keep research state until reset
+        setLoadingResearch(false)
+    }
+  }
+
+  const handleVideoAnalysis = async () => {
+    if (!videoTranscript.trim()) {
+        toast.error("Please paste an interview transcript first")
+        return
+    }
+    setLoadingVideo(true)
+    try {
+        const res = await fetch('/api/analyze/video', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                transcript: videoTranscript,
+                candidate_name: candidate.name
+            })
+        })
+        const data = await res.json()
+        setAnalysisVideo(data)
+        toast.success("Interview analyzed for sentiment & accuracy!")
+    } catch (err) {
+        toast.error("Analysis failed")
+    } finally {
+        setLoadingVideo(false)
+    }
+  }
+
+  const handlePredictSalary = async () => {
+    setLoadingSalary(true)
+    try {
+        const res = await fetch('/api/predict/salary', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                jd: candidate.job_description,
+                candidate_data: candidate.extracted_data
+            })
+        })
+        const data = await res.json()
+        setSalaryData(data)
+        toast.success("Market salary range forecasted!")
+    } catch (err) {
+        toast.error("Forecasting failed")
+    } finally {
+        setLoadingSalary(false)
+    }
+  }
+
+  const handleRoleArchitect = async () => {
+    setLoadingRoleArchitect(true)
+    try {
+        const res = await fetch('/api/analyze/role-architect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                candidate_data: candidate.extracted_data,
+                current_jd: candidate.job_description
+            })
+        })
+        const data = await res.json()
+        setRoleArchitectData(data)
+        toast.success("Alternative career path architected!")
+    } catch (err) {
+        toast.error("Architecture failed")
+    } finally {
+        setLoadingRoleArchitect(false)
+    }
+  }
+
+  const handleGenerateOnboarding = async () => {
+    setLoadingOnboarding(true)
+    try {
+        const res = await fetch('/api/analyze/onboarding', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                candidate_data: { name: candidate.name, extracted_data: candidate.extracted_data },
+                jd: candidate.job_description
+            })
+        })
+        const data = await res.json()
+        setOnboardingData(data)
+        toast.success("Succes Roadmap architected!")
+    } catch (err) {
+        toast.error("Onboarding architecture failed")
+    } finally {
+        setLoadingOnboarding(false)
+    }
+  }
+
   const chartData = [
       { name: "Technical", score: technical },
       { name: "Experience", score: experience },
@@ -642,10 +836,16 @@ export default function CandidatePage() {
                         <TabsList>
                             <TabsTrigger value="report">Assessment</TabsTrigger>
                             <TabsTrigger value="interview" className="flex items-center gap-2">
-                                <Brain className="h-4 w-4" /> Interview Simulator
+                                <Brain className="h-4 w-4" /> Interview
                             </TabsTrigger>
-                            <TabsTrigger value="chat" className="flex items-center gap-2">
-                                <Bot className="h-4 w-4" /> AI Chat
+                            <TabsTrigger value="ghost" className="flex items-center gap-2">
+                                <Bot className="h-4 w-4" /> Ghost Chat
+                            </TabsTrigger>
+                            <TabsTrigger value="outreach" className="flex items-center gap-2">
+                                <Send className="h-4 w-4" /> Outreach
+                            </TabsTrigger>
+                            <TabsTrigger value="intelligence" className="flex items-center gap-2">
+                                <Sparkles className="h-4 w-4" /> Intelligence
                             </TabsTrigger>
                         </TabsList>
                     </div>
@@ -874,62 +1074,393 @@ export default function CandidatePage() {
                         </Card>
                     </TabsContent>
 
-                    <TabsContent value="chat" className="flex-1 mt-0 h-full">
-                        <Card className="h-[600px] flex flex-col">
+                    <TabsContent value="ghost" className="flex-1 mt-0 h-full">
+                        <Card className="h-[600px] flex flex-col border-primary/20 bg-primary/[0.02]">
                             <CardHeader>
-                                <CardTitle>Chat Assistant</CardTitle>
-                                <CardDescription>Ask questions about {candidate.name}'s profile.</CardDescription>
+                                <div className="flex items-center gap-2">
+                                    <Bot className="h-5 w-5 text-primary" />
+                                    <CardTitle>AI Candidate Ghost Chat</CardTitle>
+                                </div>
+                                <CardDescription>Role-play with a virtual persona of {candidate.name} based on their resume.</CardDescription>
                             </CardHeader>
-                    <CardContent className="flex-1 flex flex-col min-h-0 p-4">
+                            <CardContent className="flex-1 flex flex-col min-h-0 p-4">
                                 <ScrollArea className="flex-1 pr-4 mb-4">
                                     <div className="flex flex-col gap-4 pb-4">
-                                        {chatMessages.map((msg, i) => (
+                                        {ghostChatMessages.length === 0 && (
+                                            <div className="text-center py-10 opacity-50">
+                                                <p className="text-sm">Ask the "Ghost" candidate a question about their background...</p>
+                                            </div>
+                                        )}
+                                        {ghostChatMessages.map((msg, i) => (
                                             <div key={i} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                                {msg.role === 'assistant' && (
-                                                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                                                        <Bot className="h-5 w-5 text-primary" />
+                                                {msg.role !== 'user' && (
+                                                    <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center shrink-0 border border-primary/20">
+                                                        <Bot className="h-4 w-4 text-primary" />
                                                     </div>
                                                 )}
-                                                <div className={`rounded-lg p-3 max-w-[85%] text-sm break-words whitespace-pre-wrap shadow-sm ${
+                                                <div className={`rounded-2xl p-4 max-w-[85%] text-sm shadow-sm ${
                                                     msg.role === 'user' 
-                                                        ? 'bg-primary text-primary-foreground ml-auto' 
-                                                        : 'bg-muted mr-auto'
+                                                        ? 'bg-primary text-primary-foreground rounded-tr-none' 
+                                                        : 'bg-muted border border-border rounded-tl-none'
                                                 }`}>
                                                     {msg.content}
                                                 </div>
-                                                {msg.role === 'user' && (
-                                                    <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center shrink-0">
-                                                        <User className="h-5 w-5 text-secondary-foreground" />
-                                                    </div>
-                                                )}
                                             </div>
                                         ))}
-                                        {chatLoading && (
+                                        {ghostChatLoading && (
                                             <div className="flex gap-3 justify-start">
-                                                 <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                                                        <Bot className="h-5 w-5 text-primary" />
+                                                 <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center shrink-0 animate-pulse">
+                                                        <Bot className="h-4 w-4 text-primary" />
                                                  </div>
-                                                 <div className="bg-muted rounded-lg p-3 text-sm animate-pulse">
-                                                    Thinking...
+                                                 <div className="bg-muted rounded-2xl p-4 text-sm animate-pulse border border-border">
+                                                    The candidate is typing...
                                                  </div>
                                             </div>
                                         )}
                                     </div>
                                 </ScrollArea>
-                                <div className="flex gap-2 pt-2 border-t mt-auto">
+                                <div className="flex gap-2 pt-4 border-t border-primary/10">
                                     <Input 
-                                        placeholder="Ask about experience, skills, etc..." 
-                                        value={chatInput}
-                                        onChange={(e) => setChatInput(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                                        className="flex-1"
+                                        placeholder={`Ask ${candidate.name.split(' ')[0]} anything...`} 
+                                        value={ghostChatInput}
+                                        onChange={(e) => setGhostChatInput(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleSendGhostMessage()}
+                                        className="rounded-xl bg-background"
                                     />
-                                    <Button onClick={handleSendMessage} disabled={chatLoading} size="icon">
+                                    <Button onClick={handleSendGhostMessage} disabled={ghostChatLoading} className="rounded-xl px-6">
                                         <Send className="h-4 w-4" />
                                     </Button>
                                 </div>
                             </CardContent>
                         </Card>
+                    </TabsContent>
+
+                    <TabsContent value="outreach" className="flex-1 mt-0">
+                        <Card className="h-full border-primary/20">
+                            <CardHeader>
+                                <div className="flex items-center gap-2">
+                                    <Mail className="h-5 w-5 text-primary" />
+                                    <CardTitle>AI Talent Outreach</CardTitle>
+                                </div>
+                                <CardDescription>Generate personalized messages that get replies.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-6">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-3 p-4 rounded-xl border bg-muted/30">
+                                        <p className="text-sm font-semibold flex items-center gap-2">
+                                            <Linkedin className="h-4 w-4 text-blue-600" /> LinkedIn Variant
+                                        </p>
+                                        <div className="flex gap-2">
+                                            <Button size="sm" variant="outline" onClick={() => handleGenerateOutreach('linkedin', 'professional')} disabled={loadingOutreach}>
+                                                Professional
+                                            </Button>
+                                            <Button size="sm" variant="outline" onClick={() => handleGenerateOutreach('linkedin', 'casual')} disabled={loadingOutreach}>
+                                                Casual
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-3 p-4 rounded-xl border bg-muted/30">
+                                        <p className="text-sm font-semibold flex items-center gap-2">
+                                            <Mail className="h-4 w-4 text-primary" /> Email Variant
+                                        </p>
+                                        <div className="flex gap-2">
+                                            <Button size="sm" variant="outline" onClick={() => handleGenerateOutreach('email', 'professional')} disabled={loadingOutreach}>
+                                                Formal
+                                            </Button>
+                                            <Button size="sm" variant="outline" onClick={() => handleGenerateOutreach('email', 'creative')} disabled={loadingOutreach}>
+                                                Creative
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {loadingOutreach && (
+                                    <div className="py-20 text-center animate-pulse space-y-4">
+                                        <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+                                            <Sparkles className="h-6 w-6 text-primary" />
+                                        </div>
+                                        <p className="text-sm text-muted-foreground italic">Drafting the perfect message...</p>
+                                    </div>
+                                )}
+
+                                {outreachData && !loadingOutreach && (
+                                    <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                                        <Card className="bg-slate-900 border-primary/30 text-slate-100 overflow-hidden">
+                                            {outreachData.subject && (
+                                                <div className="px-4 py-2 border-b border-primary/20 bg-primary/10 font-medium text-xs">
+                                                    Subject: {outreachData.subject}
+                                                </div>
+                                            )}
+                                            <div className="p-6 text-sm leading-relaxed whitespace-pre-wrap font-mono">
+                                                {outreachData.message}
+                                            </div>
+                                            <CardContent className="pt-0 flex justify-end p-4">
+                                                <Button size="sm" variant="ghost" onClick={() => {
+                                                    navigator.clipboard.writeText(outreachData.message)
+                                                    toast.success("Copied to clipboard!")
+                                                }}>
+                                                    <Copy className="h-3 w-3 mr-2" /> Copy Message
+                                                </Button>
+                                            </CardContent>
+                                        </Card>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
+                    <TabsContent value="intelligence" className="flex-1 mt-0">
+                        <div className="grid gap-6">
+                            {/* Research & Salary */}
+                            <div className="grid md:grid-cols-2 gap-6">
+                                <Card className="border-primary/20">
+                                    <CardHeader>
+                                        <div className="flex items-center gap-2">
+                                            <Github className="h-5 w-5" />
+                                            <CardTitle className="text-lg">Portfolio Research</CardTitle>
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent>
+                                        {!researchData ? (
+                                            <Button className="w-full" onClick={handleDeepResearch} disabled={loadingResearch}>
+                                                {loadingResearch ? <RotateCcw className="h-4 w-4 animate-spin mr-2" /> : <ExternalLink className="h-4 w-4 mr-2" />}
+                                                Deep Dive GitHub/Portfolio
+                                            </Button>
+                                        ) : (
+                                            <div className="space-y-4">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-sm font-medium">Technical Depth:</span>
+                                                    <Badge variant="secondary">{researchData.depth_score}/100</Badge>
+                                                </div>
+                                                <p className="text-xs text-muted-foreground leading-relaxed italic border-l-2 pl-3">"{researchData.assessment}"</p>
+                                                <div className="space-y-1">
+                                                    <p className="text-[10px] font-bold uppercase text-muted-foreground">Proficiency Markers:</p>
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {researchData.proficiency_markers.map((m, i) => (
+                                                            <Badge key={i} variant="outline" className="text-[9px]">{m}</Badge>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                <Button size="sm" variant="outline" className="w-full" onClick={handleDeepResearch}>New Search</Button>
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+
+                                <Card className="border-primary/20">
+                                    <CardHeader>
+                                        <div className="flex items-center gap-2">
+                                            <Coins className="h-5 w-5 text-yellow-500" />
+                                            <CardTitle className="text-lg">Salary Forecast</CardTitle>
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent>
+                                        {!salaryData ? (
+                                            <Button className="w-full" onClick={handlePredictSalary} disabled={loadingSalary}>
+                                                {loadingSalary ? <RotateCcw className="h-4 w-4 animate-spin mr-2" /> : <Coins className="h-4 w-4 mr-2" />}
+                                                Predict Market Range
+                                            </Button>
+                                        ) : (
+                                            <div className="space-y-4">
+                                                <div className="p-3 bg-primary/5 rounded-lg border border-primary/20 text-center">
+                                                    <p className="text-2xl font-bold text-primary">{salaryData.range.mid}</p>
+                                                    <p className="text-[10px] text-muted-foreground uppercase">{salaryData.range.low} - {salaryData.range.high} ({salaryData.currency})</p>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <p className="text-[10px] font-bold uppercase text-muted-foreground">Leverage Points:</p>
+                                                    <ul className="text-xs space-y-1">
+                                                        {salaryData.leverage_points.map((p, i) => (
+                                                            <li key={i} className="flex items-center gap-2">
+                                                                <div className="h-1 w-1 rounded-full bg-primary" /> {p}
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                                <Button size="sm" variant="outline" className="w-full" onClick={handlePredictSalary}>Recalculate</Button>
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            </div>
+
+                            {/* Interview Video Intelligence */}
+                            <Card className="border-primary/20">
+                                <CardHeader>
+                                    <div className="flex items-center gap-2">
+                                        <MonitorPlay className="h-5 w-5 text-purple-500" />
+                                        <CardTitle className="text-lg">Interview Video Intelligence</CardTitle>
+                                    </div>
+                                    <CardDescription>Analyze transcripts for technical accuracy and sentiment.</CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    {!analysisVideo ? (
+                                        <div className="space-y-4">
+                                            <textarea 
+                                                className="w-full h-32 p-3 text-sm bg-muted/30 rounded-lg border border-dashed resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+                                                placeholder="Paste the Zoom/Meet transcript here..."
+                                                value={videoTranscript}
+                                                onChange={(e) => setVideoTranscript(e.target.value)}
+                                            />
+                                            <Button className="w-full" onClick={handleVideoAnalysis} disabled={loadingVideo || !videoTranscript.trim()}>
+                                                {loadingVideo ? <RotateCcw className="h-4 w-4 animate-spin mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
+                                                Analyze Interview Sentiment
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <div className="grid md:grid-cols-2 gap-6">
+                                            <div className="space-y-4">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-sm font-medium">Technical Accuracy</span>
+                                                    <Badge variant="secondary">{analysisVideo.technical_score}%</Badge>
+                                                </div>
+                                                <Progress value={analysisVideo.technical_score} className="h-2" />
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-sm font-medium">Confidence & Vibe</span>
+                                                    <Badge variant="outline" className="capitalize">{analysisVideo.vibe}</Badge>
+                                                </div>
+                                                <Progress value={analysisVideo.sentiment_score} className="h-2" />
+                                            </div>
+                                            <div className="space-y-3">
+                                                <p className="text-[10px] font-bold uppercase text-red-500">Red Flags:</p>
+                                                {analysisVideo.red_flags.length > 0 ? (
+                                                    <ul className="text-xs space-y-1">
+                                                        {analysisVideo.red_flags.map((f, i) => <li key={i} className="text-red-600">• {f}</li>)}
+                                                    </ul>
+                                                ) : <p className="text-xs italic text-muted-foreground">None detected</p>}
+                                                <p className="text-[10px] font-bold uppercase text-green-500 mt-4">Golden Nuggets:</p>
+                                                <ul className="text-xs space-y-1">
+                                                    {analysisVideo.golden_nuggets.map((n, i) => <li key={i} className="text-green-600">• {n}</li>)}
+                                                </ul>
+                                            </div>
+                                            <Button size="sm" variant="outline" className="md:col-span-2" onClick={() => setAnalysisVideo(null)}>New Analysis</Button>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+
+                            {/* Role Architect */}
+                            <Card className="bg-gradient-to-br from-primary/10 to-transparent border-primary/30">
+                                <CardHeader>
+                                    <div className="flex items-center gap-2">
+                                        <Sparkles className="h-5 w-5 text-primary" />
+                                        <CardTitle className="text-lg">AI Role Architect</CardTitle>
+                                    </div>
+                                    <CardDescription>If they are not a fit for this role, what role SHOULD they be in?</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    {!roleArchitectData ? (
+                                        <Button className="w-full bg-primary/20 hover:bg-primary/30 border-primary/30 text-primary" onClick={handleRoleArchitect} disabled={loadingRoleArchitect}>
+                                            {loadingRoleArchitect ? <RotateCcw className="h-4 w-4 animate-spin mr-2" /> : "Architect Alternative Path"}
+                                        </Button>
+                                    ) : (
+                                        <div className="space-y-4 animate-in fade-in zoom-in-95">
+                                            <div className="p-4 bg-background/80 rounded-xl border border-primary/20 shadow-xl">
+                                                <p className="text-xs font-bold text-primary uppercase mb-1">Proposed High-Impact Role:</p>
+                                                <p className="text-xl font-black">{roleArchitectData.proposed_role}</p>
+                                            </div>
+                                            <div className="grid md:grid-cols-2 gap-4 text-xs">
+                                                <div className="space-y-2">
+                                                    <p className="font-bold uppercase text-muted-foreground">Hidden Superpowers:</p>
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {roleArchitectData.superpowers.map((s, i) => <Badge key={i} variant="outline" className="text-[9px]">{s}</Badge>)}
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <p className="font-bold uppercase text-muted-foreground">90-Day Milestones:</p>
+                                                    <ul className="space-y-1">
+                                                        {roleArchitectData.milestones.map((m, i) => <li key={i} className="flex gap-2"><div className="w-1 h-1 rounded-full bg-primary mt-1.5" /> {m}</li>)}
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                            <p className="text-xs italic text-muted-foreground border-t pt-4">Rationale: {roleArchitectData.pivot_rationale}</p>
+                                            <Button size="sm" variant="ghost" className="w-full" onClick={() => setRoleArchitectData(null)}>Reset Architecture</Button>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+
+                            {/* Culture Radar & Onboarding */}
+                            <div className="grid md:grid-cols-2 gap-6">
+                                <Card className="border-primary/20">
+                                    <CardHeader>
+                                        <CardTitle className="text-lg flex items-center gap-2">
+                                            <Target className="h-5 w-5 text-primary" /> Culture Radar
+                                        </CardTitle>
+                                        <CardDescription>Alignment with priority company values.</CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="h-[300px]">
+                                        {candidate.analysis?.culture_radar ? (
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <RadarChart cx="50%" cy="50%" outerRadius="80%" data={candidate.analysis.culture_radar}>
+                                                    <PolarGrid stroke="#333" />
+                                                    <PolarAngleAxis dataKey="value" tick={{ fill: "#888", fontSize: 10 }} />
+                                                    <PolarRadiusAxis angle={30} domain={[0, 100]} />
+                                                    <Radar
+                                                        name={candidate.name}
+                                                        dataKey="score"
+                                                        stroke="var(--primary)"
+                                                        fill="var(--primary)"
+                                                        fillOpacity={0.6}
+                                                    />
+                                                </RadarChart>
+                                            </ResponsiveContainer>
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground opacity-50">
+                                                <Target className="h-10 w-10 mb-2" />
+                                                <p className="text-xs italic">Re-run analysis to generate culture data</p>
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+
+                                <Card className="border-primary/20 bg-primary/[0.01]">
+                                    <CardHeader>
+                                        <CardTitle className="text-lg flex items-center gap-2">
+                                            <Rocket className="h-5 w-5 text-primary" /> Success Roadmap
+                                        </CardTitle>
+                                        <CardDescription>AI-generated 30-60-90 day onboarding plan.</CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        {!onboardingData ? (
+                                            <div className="space-y-4">
+                                                <p className="text-xs text-muted-foreground">Architect a personalized success path for {candidate.name} before extending the offer.</p>
+                                                <Button className="w-full" onClick={handleGenerateOnboarding} disabled={loadingOnboarding}>
+                                                    {loadingOnboarding ? <RotateCcw className="h-4 w-4 animate-spin mr-2" /> : <Rocket className="h-4 w-4 mr-2" />}
+                                                    Architect 30-60-90 Day Plan
+                                                </Button>
+                                            </div>
+                                        ) : (
+                                            <ScrollArea className="h-[350px] pr-4">
+                                                <div className="space-y-6">
+                                                    {onboardingData.phases.map((phase, idx) => (
+                                                        <div key={idx} className="space-y-2">
+                                                            <div className="flex items-center gap-2">
+                                                                <Badge className="rounded-sm">{phase.period}</Badge>
+                                                                <span className="text-xs font-bold uppercase">{phase.focus}</span>
+                                                            </div>
+                                                            <ul className="space-y-1 pl-4 border-l border-primary/20">
+                                                                {phase.milestones.map((m, i) => (
+                                                                    <li key={i} className="text-[11px] text-muted-foreground">• {m}</li>
+                                                                ))}
+                                                            </ul>
+                                                        </div>
+                                                    ))}
+                                                    <div className="pt-4 border-t border-primary/10">
+                                                        <p className="text-[10px] font-black uppercase text-primary mb-2">Friction Mitigation:</p>
+                                                        {onboardingData.friction_mitigation.map((f, i) => (
+                                                            <div key={i} className="mb-2 p-2 rounded bg-red-500/5 border border-red-500/10 text-[10px]">
+                                                                <span className="font-bold text-red-400">RISK: {f.risk}</span>
+                                                                <p className="mt-1">{f.solution}</p>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </ScrollArea>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        </div>
                     </TabsContent>
                 </Tabs>
             </Card>
