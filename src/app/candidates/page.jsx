@@ -61,11 +61,11 @@ export default function CandidatesPage() {
   }
 
   const startBattle = () => {
-    if (selectedIds.length !== 2) {
-        toast.error("Select exactly 2 candidates for Battle Mode!")
+    if (selectedIds.length < 2) {
+        toast.error("Select at least 2 candidates for the Intelligence Matrix!")
         return
     }
-    router.push(`/candidates/compare?ids=${selectedIds.join(',')}`)
+    router.push(`/candidates/compare?ids=${selectedIds.join(',')}&multitask=true`)
   }
 
   return (
@@ -124,7 +124,7 @@ export default function CandidatesPage() {
                                 <Checkbox 
                                     checked={selectedIds.includes(candidate.id)} 
                                     onCheckedChange={() => toggleSelection(candidate.id)}
-                                    disabled={selectedIds.length >= 2 && !selectedIds.includes(candidate.id)}
+                                    disabled={selectedIds.length >= 4 && !selectedIds.includes(candidate.id)}
                                 />
                             </TableCell>
                             <TableCell>
@@ -190,8 +190,8 @@ export default function CandidatesPage() {
                                 <Button variant="ghost" size="sm" onClick={() => setSelectedIds([])}>
                                     Clear
                                 </Button>
-                                <Button size="sm" onClick={startBattle} disabled={selectedIds.length !== 2} className="shadow-lg">
-                                    Enter Battle Arena <ArrowUpRight className="ml-2 h-4 w-4" />
+                                 <Button size="sm" onClick={startBattle} disabled={selectedIds.length < 2} className="shadow-lg">
+                                    Launch Intelligence Matrix <ArrowUpRight className="ml-2 h-4 w-4" />
                                 </Button>
                             </div>
                         </CardContent>

@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
-import { CheckCircle2, XCircle, Download, Mail, Copy, ChevronLeft, Send, Bot, User, Trash2, Check, X, TrendingUp, Sparkles, Brain, LayoutGrid, RotateCcw, Plus, Github, Linkedin, ExternalLink, Coins, Eye, MonitorPlay, Target, Rocket } from "lucide-react"
+import { CheckCircle2, XCircle, Download, Mail, Copy, ChevronLeft, Send, Bot, User, Trash2, Check, X, TrendingUp, Sparkles, Brain, LayoutGrid, RotateCcw, Plus, Github, Linkedin, ExternalLink, Coins, Eye, MonitorPlay, Target, Rocket, EyeOff, ShieldCheck, AlertCircle, ThumbsUp, ThumbsDown } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -69,6 +69,10 @@ export default function CandidatePage() {
   const [loadingRoleArchitect, setLoadingRoleArchitect] = useState(false)
   const [onboardingData, setOnboardingData] = useState(null)
   const [loadingOnboarding, setLoadingOnboarding] = useState(false)
+  
+  // Enterprise Suite (Level 3)
+  const [isBlindMode, setIsBlindMode] = useState(false)
+  const [analysisRating, setAnalysisRating] = useState(null) // 'good' | 'bad'
   
   // Load candidate from Supabase
   useEffect(() => {
@@ -165,9 +169,10 @@ export default function CandidatePage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          candidate_data: candidate, 
+          candidate_data: isBlindMode ? { ...candidate, name: "[ANONYMIZED]", email: "hidden@company.com" } : candidate, 
           jd: candidate.job_description || "Full Stack Engineer",
-          persona: selectedPersona
+          persona: selectedPersona,
+          blind_mode: isBlindMode
         })
       });
       const data = await res.json();
@@ -573,9 +578,35 @@ export default function CandidatePage() {
               </div>
             </CardHeader>
             <CardContent className="grid gap-4">
-              <Button className="w-full">
-                <Mail className="mr-2 h-4 w-4" /> Contact Candidate
-              </Button>
+               <div className="flex flex-col gap-4">
+                  <Button className="w-full bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20" size="lg">
+                    <Mail className="h-4 w-4 mr-2" /> Contact Candidate
+                  </Button>
+                  
+                  {/* Blind Mode Toggle */}
+                  <div className={`p-4 rounded-2xl border transition-all duration-300 flex items-center justify-between ${isBlindMode ? 'bg-primary/10 border-primary/30' : 'bg-muted/30 border-transparent hover:bg-muted/50'}`}>
+                    <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg ${isBlindMode ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'}`}>
+                            {isBlindMode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </div>
+                        <div>
+                            <p className="text-sm font-bold">Blind Screening</p>
+                            <p className="text-[10px] text-muted-foreground">Remove bias from analysis</p>
+                        </div>
+                    </div>
+                    <Button 
+                        variant={isBlindMode ? "default" : "outline"} 
+                        size="sm" 
+                        className="h-8 rounded-full"
+                        onClick={() => {
+                            setIsBlindMode(!isBlindMode)
+                            toast.info(isBlindMode ? "Blind Mode Deactivated" : "Blind Mode Activated: Analysis will be anonymized.")
+                        }}
+                    >
+                        {isBlindMode ? "ON" : "OFF"}
+                    </Button>
+                  </div>
+               </div>
               <div className="grid grid-cols-2 gap-2">
                 <Button variant="outline" onClick={handleDownload}>
                     <Download className="mr-2 h-4 w-4" /> Resume
@@ -704,8 +735,39 @@ export default function CandidatePage() {
                     </div>
                   )}
 
-                  <Button variant="outline" size="sm" className="w-full mt-4" onClick={fetchRecommendation}>
-                    <RotateCcw className="mr-2 h-3 w-3" /> Regenerate Analysis
+                  <div className="mt-6 pt-6 border-t border-primary/10 flex items-center justify-between">
+                    <div className="flex flex-col">
+                        <p className="text-[10px] font-bold uppercase text-muted-foreground">Rate this Analysis</p>
+                        <p className="text-[8px] opacity-50">Helps AI learn your preferences</p>
+                    </div>
+                    <div className="flex gap-2">
+                        <Button 
+                            variant={analysisRating === 'good' ? 'default' : 'outline'} 
+                            size="sm" 
+                            className="h-8 w-8 p-0 rounded-full"
+                            onClick={() => {
+                                setAnalysisRating('good')
+                                toast.success("Thanks! We'll keep this style.")
+                            }}
+                        >
+                            <ThumbsUp className="h-3 w-3" />
+                        </Button>
+                        <Button 
+                            variant={analysisRating === 'bad' ? 'destructive' : 'outline'} 
+                            size="sm" 
+                            className="h-8 w-8 p-0 rounded-full"
+                            onClick={() => {
+                                setAnalysisRating('bad')
+                                toast.info("Feedback noted. Try regenerating with a different persona.")
+                            }}
+                        >
+                            <ThumbsDown className="h-3 w-3" />
+                        </Button>
+                    </div>
+                  </div>
+
+                  <Button variant="ghost" size="sm" className="w-full mt-4 text-[10px] opacity-50 hover:opacity-100" onClick={fetchRecommendation}>
+                    <RotateCcw className="mr-2 h-3 w-3" /> Force Regenerate
                   </Button>
                 </div>
               ) : (
@@ -761,6 +823,39 @@ export default function CandidatePage() {
                     </div>
                 </CardContent>
             </Card>
+          )}
+
+          {/* Consensus Reliability (Level 3) */}
+          {(recommendation || candidate.analysis)?.consensus_metrics && (
+                <Card className="border-primary/20 bg-primary/5 overflow-hidden">
+                    <CardHeader className="py-3 px-4 flex flex-row items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <ShieldCheck className="h-4 w-4 text-primary" />
+                            <CardTitle className="text-sm">Consensus Reliability</CardTitle>
+                        </div>
+                        <Badge variant={(recommendation || candidate.analysis).consensus_metrics.reliability === "High" ? "default" : "destructive"} className="text-[9px]">
+                            {(recommendation || candidate.analysis).consensus_metrics.reliability}
+                        </Badge>
+                    </CardHeader>
+                    <CardContent className="py-2 px-4 pb-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                                <p className="text-[10px] uppercase text-muted-foreground">Gemini Vote</p>
+                                <p className="text-lg font-black">{(recommendation || candidate.analysis).consensus_metrics.gemini_score}</p>
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-[10px] uppercase text-muted-foreground">Groq Vote</p>
+                                <p className="text-lg font-black">{(recommendation || candidate.analysis).consensus_metrics.groq_score}</p>
+                            </div>
+                        </div>
+                        <div className="mt-3 pt-3 border-t border-primary/10 flex items-center justify-between">
+                            <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                                <AlertCircle className="h-3 w-3" /> Variance: {(recommendation || candidate.analysis).consensus_metrics.variance}%
+                            </div>
+                            <p className="text-[8px] italic opacity-50">Combined Llama 3 & Gemini insight</p>
+                        </div>
+                    </CardContent>
+                </Card>
           )}
 
           {/* Score Analysis */}
