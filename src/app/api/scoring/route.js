@@ -1,14 +1,15 @@
-
 import { NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import Groq from "groq-sdk";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "mock-key");
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
 
 export async function POST(request) {
   try {
     const { jd, candidate_data, persona = 'expert', company_culture = 'Velocity, Transparency, Extreme Ownership' } = await request.json();
+
+    if (!groq) {
+      return NextResponse.json({ error: "Groq API key not configured" }, { status: 500 });
+    }
 
     const personaDescriptions = {
         expert: "You are an Expert Auditor. You are skeptical, precise, and prioritize deep technical evidence and proven seniority.",
@@ -27,73 +28,89 @@ export async function POST(request) {
       Job Description: "${jd}"
       Candidate: ${JSON.stringify(candidate_data)}
 
+      INTERVIEW QUESTIONS GENERATION RULES:
+      1. Generate EXACTLY 15 questions in total.
+      2. EXACTLY 5 for the "Technical" round.
+      3. EXACTLY 5 for the "Culture" round.
+      4. EXACTLY 5 for the "Systems" round.
+      5. Every question MUST have a detailed "expected_answer" (Look for in the answer).
+      6. Each question should be unique and map specifically to the candidate's resume vs JD gaps.
+
       Output format (JSON):
       {
         "score": number,
         "recommendation": "Strong Hire|Hire|Maybe|Rejected",
         "confidence": number,
         "analysis": {
-          "sub_scores": { "technical": number, "experience": number, "culture": number },
+          "sub_scores": { 
+            "technical": number, 
+            "experience": number, 
+            "education": number, 
+            "soft_skills": number, 
+            "culture": number 
+          },
           "reasoning": "string",
-          "interview_questions": [{ "round": "string", "question": "string" }],
-          "culture_radar": [{ "value": "string", "score": number }]
+          "interview_questions": [
+            { "round": "Technical", "question": "Technical Q1", "expected_answer": "..." },
+            { "round": "Technical", "question": "Technical Q2", "expected_answer": "..." },
+            { "round": "Technical", "question": "Technical Q3", "expected_answer": "..." },
+            { "round": "Technical", "question": "Technical Q4", "expected_answer": "..." },
+            { "round": "Technical", "question": "Technical Q5", "expected_answer": "..." },
+            { "round": "Culture", "question": "Culture Q1", "expected_answer": "..." },
+            { "round": "Culture", "question": "Culture Q2", "expected_answer": "..." },
+            { "round": "Culture", "question": "Culture Q3", "expected_answer": "..." },
+            { "round": "Culture", "question": "Culture Q4", "expected_answer": "..." },
+            { "round": "Culture", "question": "Culture Q5", "expected_answer": "..." },
+            { "round": "Systems", "question": "Systems Q1", "expected_answer": "..." },
+            { "round": "Systems", "question": "Systems Q2", "expected_answer": "..." },
+            { "round": "Systems", "question": "Systems Q3", "expected_answer": "..." },
+            { "round": "Systems", "question": "Systems Q4", "expected_answer": "..." },
+            { "round": "Systems", "question": "Systems Q5", "expected_answer": "..." }
+          ],
+          "culture_radar": [{ "value": "string", "score": number }],
+          "market_gap_analysis": {
+            "trending_skills_missing": ["string"],
+            "unique_market_leverage": "string",
+            "demand_forecast": "Low|Medium|High"
+          },
+          "interview_prep_kit": {
+            "killer_questions": [{ "question": "string", "expected_answer": "string", "trap_to_avoid": "string" }],
+            "recruiter_cheat_sheet": "string"
+          },
+          "career_arc": {
+            "title_2_year": "string",
+            "title_5_year": "string",
+            "title_10_year": "string",
+            "growth_trajectory": "Linear|Exponential|Managerial|Specialist",
+            "milestone_prediction": "string"
+          },
+          "team_dynamics": {
+            "archetype": "Visionary|Executor|Diplomat|Analyst",
+            "team_complementarity": "string (How they fill gaps)",
+            "potential_conflict_areas": ["string"]
+          },
+          "skill_verification_quiz": [
+            { "question": "string", "options": ["string", "string", "string", "string"], "correct_answer": "string", "difficulty": "Junior|Mid|Senior" }
+          ]
         }
       }
     `;
 
-    // --- PRODUCTION LEVEL: Consensus Scoring ---
-    // We run both models in parallel to eliminate single-model bias.
-    
-    const [groqResult, geminiResult] = await Promise.allSettled([
-        // Groq Execution
-        (async () => {
-            if (!groq) throw new Error("Groq not configured");
-            const completion = await groq.chat.completions.create({
-                messages: [{ role: "system", content: currentPersona }, { role: "user", content: prompt }],
-                model: "llama-3.3-70b-versatile",
-                response_format: { type: "json_object" }
-            });
-            return JSON.parse(completion.choices[0]?.message?.content);
-        })(),
-        // Gemini Execution
-        (async () => {
-            const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
-            const result = await model.generateContent(prompt);
-            const text = result.response.text().replace(/```json/g, '').replace(/```/g, '').trim();
-            return JSON.parse(text);
-        })()
-    ]);
+    const completion = await groq.chat.completions.create({
+        messages: [
+            { role: "system", content: `You are a world-class recruitment AI operating in ${persona} mode.` },
+            { role: "user", content: prompt }
+        ],
+        model: "llama-3.3-70b-versatile",
+        response_format: { type: "json_object" }
+    });
 
-    let finalData = null;
-    let variance = 0;
-
-    const groqData = groqResult.status === 'fulfilled' ? groqResult.value : null;
-    const geminiData = geminiResult.status === 'fulfilled' ? geminiResult.value : null;
-
-    if (groqData && geminiData) {
-        // Consensus achieved! Calculate weighted average
-        const avgScore = Math.round((groqData.score * 0.4) + (geminiData.score * 0.6));
-        variance = Math.abs(groqData.score - geminiData.score);
-        
-        finalData = {
-            ...geminiData, // Default to Gemini's rich structure
-            score: avgScore,
-            consensus_metrics: {
-                groq_score: groqData.score,
-                gemini_score: geminiData.score,
-                variance: variance,
-                reliability: variance < 15 ? "High" : "Manual Review Recommended"
-            }
-        };
-    } else {
-        // Fallback to whichever one succeeded
-        finalData = geminiData || groqData || { score: 0, analysis: { reasoning: "Both AI models failed." }};
-    }
+    const finalData = JSON.parse(completion.choices[0]?.message?.content);
 
     return NextResponse.json(finalData);
 
   } catch (error) {
-    console.error("Scoring Fatal Error:", error);
-    return NextResponse.json({ score: 0, error: "Critical failure" }, { status: 500 });
+    console.error("Groq Scoring Fatal Error:", error);
+    return NextResponse.json({ score: 0, error: "Critical failure in Groq analysis" }, { status: 500 });
   }
 }

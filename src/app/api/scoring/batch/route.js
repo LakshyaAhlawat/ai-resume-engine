@@ -1,12 +1,15 @@
-
 import { NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import Groq from "groq-sdk";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "mock-key");
+const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
 
 export async function POST(request) {
   try {
     const { candidates } = await request.json();
+
+    if (!groq) {
+        return NextResponse.json({ error: "Groq API key not configured" }, { status: 500 });
+    }
 
     if (!candidates || candidates.length < 2) {
         return NextResponse.json({ error: "At least 2 candidates are required for batch analysis." }, { status: 400 });
@@ -21,6 +24,7 @@ export async function POST(request) {
       ${candidates.map(c => `
         - Name: ${c.name}
         - Current Score: ${c.score}%
+        - Sub-scores: ${JSON.stringify(c.analysis?.sub_scores)}
         - Technical Strengths: ${c.analysis?.strengths?.join(', ')}
         - Experience Gaps: ${c.analysis?.weaknesses?.join(', ')}
         - Summary: ${c.analysis?.reasoning}
@@ -43,14 +47,19 @@ export async function POST(request) {
       }
     `;
 
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
-    const result = await model.generateContent(prompt);
-    const text = result.response.text().replace(/```json/g, '').replace(/```/g, '').trim();
+    const completion = await groq.chat.completions.create({
+        messages: [
+            { role: "system", content: "You are an Elite Hiring Committee Lead using Llama 3 intelligence." },
+            { role: "user", content: prompt }
+        ],
+        model: "llama-3.3-70b-versatile",
+        response_format: { type: "json_object" }
+    });
     
-    return NextResponse.json(JSON.parse(text));
+    return NextResponse.json(JSON.parse(completion.choices[0]?.message?.content));
 
   } catch (error) {
-    console.error("Batch Scoring Error:", error);
-    return NextResponse.json({ error: "Failed to generate batch intelligence" }, { status: 500 });
+    console.error("Batch Groq Scoring Error:", error);
+    return NextResponse.json({ error: "Failed to generate batch intelligence via Groq" }, { status: 500 });
   }
 }

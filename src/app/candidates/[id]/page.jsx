@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
-import { CheckCircle2, XCircle, Download, Mail, Copy, ChevronLeft, Send, Bot, User, Trash2, Check, X, TrendingUp, Sparkles, Brain, LayoutGrid, RotateCcw, Plus, Github, Linkedin, ExternalLink, Coins, Eye, MonitorPlay, Target, Rocket, EyeOff, ShieldCheck, AlertCircle, ThumbsUp, ThumbsDown } from "lucide-react"
+import { CheckCircle2, XCircle, Download, Mail, Copy, ChevronLeft, Send, Bot, User, Trash2, Check, X, TrendingUp, Sparkles, Brain, LayoutGrid, RotateCcw, Plus, Github, Linkedin, ExternalLink, Coins, Eye, MonitorPlay, Target, Rocket, EyeOff, ShieldCheck, AlertCircle, ThumbsUp, ThumbsDown, BarChart3, Flame, MessageSquareQuote, Hourglass, Users2, FileEdit, Milestone, LineChart } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -71,7 +71,6 @@ export default function CandidatePage() {
   const [loadingOnboarding, setLoadingOnboarding] = useState(false)
   
   // Enterprise Suite (Level 3)
-  const [isBlindMode, setIsBlindMode] = useState(false)
   const [analysisRating, setAnalysisRating] = useState(null) // 'good' | 'bad'
   
   // Load candidate from Supabase
@@ -169,10 +168,9 @@ export default function CandidatePage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          candidate_data: isBlindMode ? { ...candidate, name: "[ANONYMIZED]", email: "hidden@company.com" } : candidate, 
+          candidate_data: candidate, 
           jd: candidate.job_description || "Full Stack Engineer",
-          persona: selectedPersona,
-          blind_mode: isBlindMode
+          persona: selectedPersona
         })
       });
       const data = await res.json();
@@ -359,12 +357,19 @@ export default function CandidatePage() {
           .eq('id', candidate.id)
 
         if (!error) {
+          // Update candidate state
           setCandidate(prev => ({
             ...prev,
             analysis: mergedAnalysis
           }))
+          
+          // CRITICAL: Update recommendation state too, as it takes precedence in the UI
+          if (recommendation) {
+            setRecommendation(mergedAnalysis)
+          }
+
           setAddonInput("")
-          toast.success("Extra question added!")
+          toast.success("Extra question added and persisted!")
         }
       }
     } catch (err) {
@@ -582,30 +587,6 @@ export default function CandidatePage() {
                   <Button className="w-full bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20" size="lg">
                     <Mail className="h-4 w-4 mr-2" /> Contact Candidate
                   </Button>
-                  
-                  {/* Blind Mode Toggle */}
-                  <div className={`p-4 rounded-2xl border transition-all duration-300 flex items-center justify-between ${isBlindMode ? 'bg-primary/10 border-primary/30' : 'bg-muted/30 border-transparent hover:bg-muted/50'}`}>
-                    <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${isBlindMode ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'}`}>
-                            {isBlindMode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </div>
-                        <div>
-                            <p className="text-sm font-bold">Blind Screening</p>
-                            <p className="text-[10px] text-muted-foreground">Remove bias from analysis</p>
-                        </div>
-                    </div>
-                    <Button 
-                        variant={isBlindMode ? "default" : "outline"} 
-                        size="sm" 
-                        className="h-8 rounded-full"
-                        onClick={() => {
-                            setIsBlindMode(!isBlindMode)
-                            toast.info(isBlindMode ? "Blind Mode Deactivated" : "Blind Mode Activated: Analysis will be anonymized.")
-                        }}
-                    >
-                        {isBlindMode ? "ON" : "OFF"}
-                    </Button>
-                  </div>
                </div>
               <div className="grid grid-cols-2 gap-2">
                 <Button variant="outline" onClick={handleDownload}>
@@ -735,6 +716,32 @@ export default function CandidatePage() {
                     </div>
                   )}
 
+                  {/* Market Gap Analysis (L3 Expansion) */}
+                  {(recommendation || candidate.analysis)?.market_gap_analysis && (
+                    <div className="mt-6 p-4 rounded-2xl bg-gradient-to-br from-yellow-500/10 to-transparent border border-yellow-500/20">
+                      <div className="flex items-center gap-2 mb-3">
+                        <BarChart3 className="h-4 w-4 text-yellow-600" />
+                        <p className="text-xs font-bold uppercase text-yellow-700">Market Gap Analysis</p>
+                        <Badge variant="outline" className="ml-auto text-[8px] border-yellow-500/30 text-yellow-700">
+                          Demand: {(recommendation || candidate.analysis).market_gap_analysis.demand_forecast}
+                        </Badge>
+                      </div>
+                      <div className="space-y-3">
+                        <div>
+                          <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Missing Trending Skills:</p>
+                          <div className="flex flex-wrap gap-1">
+                            {(recommendation || candidate.analysis).market_gap_analysis.trending_skills_missing.map((s, i) => (
+                              <Badge key={i} variant="secondary" className="text-[9px] bg-background/50">{s}</Badge>
+                            ))}
+                          </div>
+                        </div>
+                        <p className="text-xs leading-relaxed text-muted-foreground">
+                          <span className="font-bold text-foreground">Leverage:</span> {(recommendation || candidate.analysis).market_gap_analysis.unique_market_leverage}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="mt-6 pt-6 border-t border-primary/10 flex items-center justify-between">
                     <div className="flex flex-col">
                         <p className="text-[10px] font-bold uppercase text-muted-foreground">Rate this Analysis</p>
@@ -858,6 +865,45 @@ export default function CandidatePage() {
                 </Card>
           )}
 
+            {/* Interview Prep Kit (L3 Expansion) */}
+            {(recommendation || candidate.analysis)?.interview_prep_kit && (
+                <Card className="border-primary/20 bg-primary/5">
+                    <CardHeader className="pb-3 text-center border-b border-primary/10">
+                        <div className="p-3 rounded-full bg-primary/20 w-fit mx-auto mb-2">
+                            <MessageSquareQuote className="h-6 w-6 text-primary" />
+                        </div>
+                        <CardTitle className="text-lg">Recruiter Interview Playbook</CardTitle>
+                        <CardDescription className="text-xs">Tailored strategy for {(candidate.name || "this candidate").split(' ')[0]}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="pt-6 space-y-6">
+                        <div className="space-y-4">
+                            <p className="text-xs font-bold text-primary uppercase">Killer Questions (Tier 1):</p>
+                            {(recommendation || candidate.analysis).interview_prep_kit.killer_questions.map((q, i) => (
+                                <div key={i} className="p-4 rounded-xl bg-background border border-primary/10 space-y-3">
+                                    <p className="text-sm font-semibold text-foreground">"{q.question}"</p>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1">
+                                            <p className="text-[9px] uppercase font-bold text-green-600">Perfect Answer Looks Like:</p>
+                                            <p className="text-[10px] text-muted-foreground leading-tight">{q.expected_answer}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[9px] uppercase font-bold text-red-600">The Trap to Avoid:</p>
+                                            <p className="text-[10px] text-muted-foreground leading-tight">{q.trap_to_avoid}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="p-4 rounded-xl bg-background border border-dashed border-primary/20">
+                           <p className="text-xs font-bold text-muted-foreground uppercase mb-2">Internal Recruiter Note:</p>
+                           <p className="text-xs italic leading-relaxed text-muted-foreground">
+                            {(recommendation || candidate.analysis).interview_prep_kit.recruiter_cheat_sheet}
+                           </p>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
           {/* Score Analysis */}
           <Card>
             <CardHeader>
@@ -928,20 +974,12 @@ export default function CandidatePage() {
             <Card className="h-full flex flex-col border-none shadow-none bg-transparent">
                 <Tabs defaultValue="report" className="h-full flex flex-col">
                     <div className="flex items-center justify-between mb-4">
-                        <TabsList>
-                            <TabsTrigger value="report">Assessment</TabsTrigger>
-                            <TabsTrigger value="interview" className="flex items-center gap-2">
-                                <Brain className="h-4 w-4" /> Interview
-                            </TabsTrigger>
-                            <TabsTrigger value="ghost" className="flex items-center gap-2">
-                                <Bot className="h-4 w-4" /> Ghost Chat
-                            </TabsTrigger>
-                            <TabsTrigger value="outreach" className="flex items-center gap-2">
-                                <Send className="h-4 w-4" /> Outreach
-                            </TabsTrigger>
-                            <TabsTrigger value="intelligence" className="flex items-center gap-2">
-                                <Sparkles className="h-4 w-4" /> Intelligence
-                            </TabsTrigger>
+                        <TabsList className="bg-muted/50 p-1">
+                            <TabsTrigger value="report" className="text-[10px]">Assessment</TabsTrigger>
+                            <TabsTrigger value="interview" className="text-[10px]"><Brain className="mr-2 h-3 w-3" /> Interview</TabsTrigger>
+                            <TabsTrigger value="ghost" className="text-[10px]"><Bot className="mr-2 h-3 w-3" /> Ghost Chat</TabsTrigger>
+                            <TabsTrigger value="intelligence" className="text-[10px]"><Sparkles className="mr-2 h-3 w-3" /> Intelligence</TabsTrigger>
+                            <TabsTrigger value="predictive" className="text-[10px] bg-primary/5 border-l border-primary/20 ml-2"><LineChart className="mr-2 h-3 w-3" /> Predictive</TabsTrigger>
                         </TabsList>
                     </div>
 
@@ -1112,8 +1150,8 @@ export default function CandidatePage() {
                             <CardContent className="space-y-6">
                                 {(recommendation || candidate.analysis)?.interview_questions ? (
                                     <div className="grid gap-4">
-                                        {(recommendation || candidate.analysis).interview_questions
-                                            .filter(q => (q.round || 'Technical') === interviewRound && q.question?.trim())
+                                        {(recommendation || candidate.analysis)?.interview_questions
+                                            .filter(q => (q.round || 'Technical').toLowerCase() === interviewRound.toLowerCase() && q.question?.trim())
                                             .map((q, i) => (
                                                 <div key={i} className="p-4 rounded-lg border bg-muted/20 hover:bg-muted/40 transition-colors">
                                                     <p className="font-medium text-sm text-foreground leading-relaxed">
@@ -1123,12 +1161,12 @@ export default function CandidatePage() {
                                                     <div className="mt-3 p-3 rounded bg-background/50 border border-dashed border-primary/20">
                                                         <p className="text-xs font-semibold text-primary/70 uppercase tracking-tighter mb-1">Look for in the answer:</p>
                                                         <p className="text-xs text-muted-foreground italic leading-relaxed">
-                                                            {q.expected_answer}
+                                                            {q.expected_answer || "Focus on core technical proof and seniority markers."}
                                                         </p>
                                                     </div>
                                                 </div>
                                             ))}
-                                        {(recommendation || candidate.analysis).interview_questions.filter(q => (q.round || 'Technical') === interviewRound && q.question?.trim()).length === 0 && (
+                                        {(recommendation || candidate.analysis)?.interview_questions.filter(q => (q.round || 'Technical').toLowerCase() === interviewRound.toLowerCase() && q.question?.trim()).length === 0 && (
                                             <div className="text-center py-10 text-sm text-muted-foreground">
                                                 No questions available for this round. Try regenerating the analysis.
                                             </div>
@@ -1555,6 +1593,113 @@ export default function CandidatePage() {
                                     </CardContent>
                                 </Card>
                             </div>
+                        </div>
+                    </TabsContent>
+                    <TabsContent value="predictive" className="flex-1 mt-0">
+                        <div className="grid gap-6">
+                            {/* Level 4: Career Arc & Team Dynamics */}
+                            <div className="grid md:grid-cols-2 gap-6">
+                                <Card className="border-primary/20">
+                                    <CardHeader>
+                                        <CardTitle className="text-sm flex items-center gap-2">
+                                            <Hourglass className="h-4 w-4 text-primary" /> Projected Career Arc
+                                        </CardTitle>
+                                        <CardDescription className="text-[10px]">AI-calculated trajectory for 10 years</CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="space-y-6">
+                                        <div className="relative pl-8 space-y-8 before:absolute before:left-3.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-primary/20">
+                                            {[
+                                                { label: "2 YEAR", title: (recommendation || candidate.analysis)?.career_arc?.title_2_year || "Senior Engineer" },
+                                                { label: "5 YEAR", title: (recommendation || candidate.analysis)?.career_arc?.title_5_year || "Staff/Principal" },
+                                                { label: "10 YEAR", title: (recommendation || candidate.analysis)?.career_arc?.title_10_year || "VP Intelligence" }
+                                            ].map((milestone, i) => (
+                                                <div key={i} className="relative">
+                                                    <div className="absolute -left-8 top-1 h-3 w-3 rounded-full bg-primary border-4 border-background" />
+                                                    <p className="text-[9px] font-bold text-muted-foreground uppercase">{milestone.label}</p>
+                                                    <p className="text-sm font-bold text-primary">{milestone.title}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <div className="p-3 rounded-xl bg-primary/5 border border-dashed border-primary/20">
+                                            <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Trajectory Model</p>
+                                            <p className="text-xs italic">"{(recommendation || candidate.analysis)?.career_arc?.milestone_prediction || "Predictive models suggest rapid technical advancement toward strategic leadership."}"</p>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+                                <Card className="border-primary/20">
+                                    <CardHeader>
+                                        <CardTitle className="text-sm flex items-center gap-2">
+                                            <Users2 className="h-4 w-4 text-primary" /> Team Dynamics Audit
+                                        </CardTitle>
+                                        <CardDescription className="text-[10px]">Archetype & Culture Complementarity</CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="space-y-4">
+                                        <div className="flex items-center justify-between p-3 rounded-2xl bg-muted/50 border">
+                                           <div>
+                                             <p className="text-[10px] font-bold text-muted-foreground uppercase">Role Archetype</p>
+                                             <p className="text-lg font-black text-primary">{(recommendation || candidate.analysis)?.team_dynamics?.archetype || "Visionary"}</p>
+                                           </div>
+                                           <div className="p-3 bg-primary/10 rounded-full">
+                                             <Rocket className="h-5 w-5 text-primary" />
+                                           </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <p className="text-[10px] font-bold text-muted-foreground uppercase">Gap Contribution:</p>
+                                            <p className="text-xs leading-relaxed">
+                                                {(recommendation || candidate.analysis)?.team_dynamics?.team_complementarity || "Providing high-level structural thinking that may be missing in execution-heavy teams."}
+                                            </p>
+                                        </div>
+                                        <div className="pt-2">
+                                            <p className="text-[10px] font-bold text-red-500 uppercase mb-2">Watch-out Areas:</p>
+                                            <div className="flex flex-wrap gap-1">
+                                                {(recommendation || candidate.analysis)?.team_dynamics?.potential_conflict_areas?.map((area, i) => (
+                                                    <Badge key={i} variant="outline" className="text-[8px] border-red-500/30 text-red-600 bg-red-500/5">{area}</Badge>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </div>
+
+                            {/* Level 4: Skill Verification Quiz */}
+                            <Card className="border-primary/20 shadow-lg shadow-primary/5">
+                                <CardHeader className="flex flex-row items-center justify-between">
+                                    <div>
+                                        <CardTitle className="text-lg flex items-center gap-2">
+                                            <FileEdit className="h-5 w-5 text-primary" /> Bespoke Skill Verification Quiz
+                                        </CardTitle>
+                                        <CardDescription className="text-xs font-mono">Generated specifically for {candidate.name}</CardDescription>
+                                    </div>
+                                    <Badge variant="outline" className="bg-primary/5">Level 4 Interactive</Badge>
+                                </CardHeader>
+                                <CardContent className="space-y-6">
+                                    {(recommendation || candidate.analysis)?.skill_verification_quiz ? (
+                                        <div className="grid md:grid-cols-2 gap-4">
+                                            {(recommendation || candidate.analysis).skill_verification_quiz.slice(0, 4).map((q, i) => (
+                                                <div key={i} className="p-4 rounded-xl border bg-muted/30 space-y-3">
+                                                    <div className="flex justify-between">
+                                                        <p className="text-[9px] font-bold text-primary uppercase tracking-widest">Q{i+1}</p>
+                                                        <Badge className="text-[8px] h-4">{q.difficulty}</Badge>
+                                                    </div>
+                                                    <p className="text-sm font-bold leading-tight">{q.question}</p>
+                                                    <div className="grid grid-cols-2 gap-2 pt-2">
+                                                        {q.options.map((opt, oi) => (
+                                                            <div key={oi} className="p-2 rounded bg-background border text-[10px] text-muted-foreground text-center hover:border-primary cursor-pointer transition-all">
+                                                                {opt}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="p-10 text-center border-2 border-dashed rounded-xl">
+                                            <p className="text-sm text-muted-foreground italic">Regenerate the analysis to produce a customized technical quiz for this candidate.</p>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
                         </div>
                     </TabsContent>
                 </Tabs>

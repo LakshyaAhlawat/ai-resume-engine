@@ -10,10 +10,12 @@ import {
   UploadCloud, 
   Users, 
   BarChart, 
-  Settings, 
+  Sparkles,
+  MapPin,
+  Globe,
+  Settings,
   Bot,
-  BookOpen,
-  Sparkles
+  BookOpen
 } from "lucide-react"
 
 const sidebarNavItems = [
@@ -41,6 +43,16 @@ const sidebarNavItems = [
     title: "JD Engine",
     href: "/jd-engine",
     icon: Sparkles,
+  },
+  {
+    title: "Talent Mapping",
+    href: "/candidates/mapping",
+    icon: MapPin,
+  },
+  {
+    title: "Market Intel",
+    href: "/analytics/market",
+    icon: Globe,
   },
 ]
 

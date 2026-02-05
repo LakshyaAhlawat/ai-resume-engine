@@ -22,7 +22,11 @@ import {
   Github,
   MonitorPlay,
   Target,
-  Rocket
+  Rocket,
+  Users2,
+  FileEdit,
+  MapPin,
+  Globe
 } from "lucide-react"
 
 export default function DocsPage() {
@@ -54,6 +58,7 @@ export default function DocsPage() {
                     <TabsTrigger value="genai" className="px-8 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground h-full">GenAI Suite</TabsTrigger>
                     <TabsTrigger value="jd" className="px-8 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground h-full">JD Engine</TabsTrigger>
                     <TabsTrigger value="intelligence" className="px-8 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground h-full">Candidate Intel</TabsTrigger>
+                    <TabsTrigger value="predictive" className="px-8 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground h-full">Predictive Suite</TabsTrigger>
                 </TabsList>
             </div>
 
@@ -75,10 +80,10 @@ export default function DocsPage() {
                             <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center mb-2">
                                 <Target className="h-5 w-5 text-primary" />
                             </div>
-                            <CardTitle>Explainable Scoring</CardTitle>
+                            <CardTitle>Groq-Powered Scoring</CardTitle>
                         </CardHeader>
                         <CardContent className="text-sm text-muted-foreground leading-relaxed">
-                            No more "Black Box" scores. Each candidate gets a breakdown of technical merit, experience density, and education relevance, all cited from their resume.
+                            Powered by Llama 3.3 70B via Groq. Includes a 5-dimension breakdown: Technical, Experience, Education, Soft Skills, and Culture DNA. All insights are generated with sub-1s latency.
                         </CardContent>
                     </Card>
                     <Card className="border-primary/10 bg-primary/[0.02]">
@@ -223,6 +228,59 @@ export default function DocsPage() {
                         </p>
                     </div>
                     <Sparkles className="absolute -bottom-10 -right-10 h-64 w-64 text-primary/10" />
+                </div>
+            </TabsContent>
+
+            <TabsContent value="predictive" className="space-y-12 animate-in fade-in slide-in-from-bottom-5 duration-500">
+                <div className="grid md:grid-cols-2 gap-12 items-center">
+                    <div className="space-y-6">
+                        <Badge className="bg-primary/20 text-primary border-primary/20">Level 4 Prediction</Badge>
+                        <h2 className="text-4xl font-black flex items-center gap-3">
+                            <Rocket className="h-8 w-8 text-primary" /> Projected Career Arc
+                        </h2>
+                        <p className="text-lg text-muted-foreground leading-relaxed">
+                            See the future of your talent. Our AI projects the candidate's trajectory over 2, 5, and 10 years, identifying high-potential leaders and specialist experts before they reach their peak.
+                        </p>
+                    </div>
+                    <div className="space-y-6">
+                        <Badge className="bg-primary/20 text-primary border-primary/20">Team Psychology</Badge>
+                        <h2 className="text-4xl font-black flex items-center gap-3">
+                            <Users2 className="h-8 w-8 text-primary" /> Team Dynamics Audit
+                        </h2>
+                        <p className="text-lg text-muted-foreground leading-relaxed">
+                            Understand the human element. The AI audits the candidate's archetype (Visionary, Executor, etc.) and predicts how they will complement or conflict with your existing team structure.
+                        </p>
+                    </div>
+                </div>
+
+                <div className="grid md:grid-cols-3 gap-6 pt-10">
+                    <Card className="border-primary/20 bg-primary/[0.02]">
+                        <CardHeader>
+                            <FileEdit className="h-8 w-8 mb-2 text-primary" />
+                            <CardTitle>Bespoke Skill Quizzes</CardTitle>
+                        </CardHeader>
+                        <CardContent className="text-sm text-muted-foreground">
+                            Custom-generated 5-question technical assessments for every candidate. Designed to verify depth in their self-proclaimed expertise.
+                        </CardContent>
+                    </Card>
+                    <Card className="border-primary/20 bg-primary/[0.02]">
+                        <CardHeader>
+                            <MapPin className="h-8 w-8 mb-2 text-primary" />
+                            <CardTitle>Talent Mapping</CardTitle>
+                        </CardHeader>
+                        <CardContent className="text-sm text-muted-foreground">
+                            Visualize your entire candidate pool by skill density, seniority, and "Role Fit" to identify gaps in your hiring pipeline.
+                        </CardContent>
+                    </Card>
+                    <Card className="border-primary/20 bg-primary/[0.02]">
+                        <CardHeader>
+                            <Globe className="h-8 w-8 mb-2 text-primary" />
+                            <CardTitle>Market Intel</CardTitle>
+                        </CardHeader>
+                        <CardContent className="text-sm text-muted-foreground">
+                            Internal global trends analyzer comparing your candidates against real-time industry demands and missing skills.
+                        </CardContent>
+                    </Card>
                 </div>
             </TabsContent>
         </Tabs>
