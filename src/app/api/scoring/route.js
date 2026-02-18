@@ -33,12 +33,19 @@ export async function POST(request) {
       2. EXACTLY 5 for the "Technical" round.
       3. EXACTLY 5 for the "Culture" round.
       4. EXACTLY 5 for the "Systems" round.
-      5. Every question MUST have a detailed "expected_answer" (Look for in the answer).
-      6. Each question should be unique and map specifically to the candidate's resume vs JD gaps.
+      GROUND TRUTH RULES (STRICT AUDIT):
+      1. ONLY mention skills as "Strengths" if they appear EXPLICITLY in the resume (Work Exp or Skills section).
+      2. STACK MISMATCH PENALTY: If JD requires React and resume only has Backend/ML, the Technical score MUST be capped at 30.
+      3. No "transferable" bonus for mismatched stacks. Be brutal.
+      4. DO NOT assume proficiency in core JS if JD is React and they only used Python.
+
+      SCORE CALCULATION:
+      - "score": (integer 0-100) - The final AGGREGATED match score.
+      - Every sub-score MUST also be a plain integer 0-100.
 
       Output format (JSON):
       {
-        "score": number,
+        "score": number, // Pure integer 0-100
         "recommendation": "Strong Hire|Hire|Maybe|Rejected",
         "confidence": number,
         "analysis": {
@@ -49,6 +56,8 @@ export async function POST(request) {
             "soft_skills": number, 
             "culture": number 
           },
+          "strengths": ["string"],
+          "weaknesses": ["string"],
           "reasoning": "string",
           "interview_questions": [
             { "round": "Technical", "question": "Technical Q1", "expected_answer": "..." },
@@ -66,31 +75,6 @@ export async function POST(request) {
             { "round": "Systems", "question": "Systems Q3", "expected_answer": "..." },
             { "round": "Systems", "question": "Systems Q4", "expected_answer": "..." },
             { "round": "Systems", "question": "Systems Q5", "expected_answer": "..." }
-          ],
-          "culture_radar": [{ "value": "string", "score": number }],
-          "market_gap_analysis": {
-            "trending_skills_missing": ["string"],
-            "unique_market_leverage": "string",
-            "demand_forecast": "Low|Medium|High"
-          },
-          "interview_prep_kit": {
-            "killer_questions": [{ "question": "string", "expected_answer": "string", "trap_to_avoid": "string" }],
-            "recruiter_cheat_sheet": "string"
-          },
-          "career_arc": {
-            "title_2_year": "string",
-            "title_5_year": "string",
-            "title_10_year": "string",
-            "growth_trajectory": "Linear|Exponential|Managerial|Specialist",
-            "milestone_prediction": "string"
-          },
-          "team_dynamics": {
-            "archetype": "Visionary|Executor|Diplomat|Analyst",
-            "team_complementarity": "string (How they fill gaps)",
-            "potential_conflict_areas": ["string"]
-          },
-          "skill_verification_quiz": [
-            { "question": "string", "options": ["string", "string", "string", "string"], "correct_answer": "string", "difficulty": "Junior|Mid|Senior" }
           ]
         }
       }

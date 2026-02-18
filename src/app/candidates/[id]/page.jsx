@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
-import { CheckCircle2, XCircle, Download, Mail, Copy, ChevronLeft, Send, Bot, User, Trash2, Check, X, TrendingUp, Sparkles, Brain, LayoutGrid, RotateCcw, Plus, Github, Linkedin, ExternalLink, Coins, Eye, MonitorPlay, Target, Rocket, EyeOff, ShieldCheck, AlertCircle, ThumbsUp, ThumbsDown, BarChart3, Flame, MessageSquareQuote, Hourglass, Users2, FileEdit, Milestone, LineChart } from "lucide-react"
+import { MapPin, Calendar, CheckCircle2, XCircle, Download, Mail, Copy, ChevronLeft, Send, Bot, User, Trash2, Check, X, TrendingUp, Sparkles, Brain, LayoutGrid, RotateCcw, Plus, Github, Linkedin, ExternalLink, Coins, Eye, MonitorPlay, Target, Rocket, EyeOff, ShieldCheck, AlertCircle, ThumbsUp, ThumbsDown, BarChart3, Flame, MessageSquareQuote, Hourglass, Users2, FileEdit, Milestone, LineChart } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -177,32 +177,37 @@ export default function CandidatePage() {
       
       const { supabase } = await import("@/lib/supabase")
       
+      const parsedScore = parseInt(String(data.score).replace(/[^0-9]/g, '')) || 0;
       const mergedAnalysis = {
           ...data.analysis,
+          sub_scores: data.analysis.sub_scores, 
           recommendation: data.recommendation,
-          confidence: data.confidence
+          confidence: data.confidence,
+          last_analyzed: new Date().toISOString()
       }
 
-      // Update local recommendation summary state with the merged object
+      // Update local state atomically
       setRecommendation(mergedAnalysis);
 
-      // Persist the new analysis to Supabase
+      // Persist to Supabase
       const { error: updateError } = await supabase
           .from('candidates')
           .update({ 
-              score: data.score,
+              score: parsedScore,
               analysis: mergedAnalysis 
           })
           .eq('id', candidate.id)
 
       if (!updateError) {
-          // Update local candidate state so all tabs and charts refresh
+          // Update candidate state immediately
           setCandidate(prev => ({
               ...prev,
-              score: data.score,
+              score: parsedScore,
               analysis: mergedAnalysis
           }))
+          
           toast.success(`AI ${selectedPersona} Analysis generated and saved!`);
+          // router.refresh(); // Removed to avoid page flicker, state update is enough
       } else {
           console.error("Database persistence failed:", updateError)
           toast.error("Analysis generated but failed to save to database");
@@ -310,12 +315,11 @@ export default function CandidatePage() {
 
   if (!candidate) return <AppShell title="Loading..."><div className="p-10 text-center">Loading candidate profile...</div></AppShell>
 
-  const score = candidate.score || 0
-  const technical = candidate.analysis?.sub_scores?.technical || 0
-  const experience = candidate.analysis?.sub_scores?.experience || 0
-  const education = candidate.analysis?.sub_scores?.education || 0
-  const softSkills = candidate.analysis?.sub_scores?.soft_skills || 0
-  const culture = candidate.analysis?.sub_scores?.culture || 0
+  const technical = (recommendation || candidate.analysis)?.sub_scores?.technical || 0
+  const experience = (recommendation || candidate.analysis)?.sub_scores?.experience || 0
+  const education = (recommendation || candidate.analysis)?.sub_scores?.education || 0
+  const softSkills = (recommendation || candidate.analysis)?.sub_scores?.soft_skills || 0
+  const culture = (recommendation || candidate.analysis)?.sub_scores?.culture || 0
 
   const handleRequestAddon = async () => {
     if (loadingAddon) return
@@ -567,561 +571,524 @@ export default function CandidatePage() {
             </Button>
         </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
-        {/* Left Column: Profile & Actions */}
-        <div className="space-y-6">
-          <Card>
-            <CardHeader className="text-center">
-              <div className="w-24 h-24 mx-auto bg-muted rounded-full mb-4 flex items-center justify-center text-2xl font-bold bg-gradient-to-br from-primary/20 to-primary/5">
-                {(candidate.name || "C").charAt(0)}
-              </div>
-              <CardTitle className="text-2xl">{candidate.name || "Unknown Candidate"}</CardTitle>
-              <CardDescription>{candidate.role || "Applicant"}</CardDescription>
-              <div className="flex justify-center gap-2 mt-4">
-                <Badge>{candidate.status || "Pending"}</Badge>
-                <Badge variant="outline">{candidate.extracted_data?.career_level || "Beginner"}</Badge>
-              </div>
+      <div className="grid gap-8 lg:grid-cols-3 items-start pb-20">
+        {/* Combined Side Navigation (1/3) */}
+        <div className="space-y-6 lg:sticky lg:top-8">
+          <Card className="border-primary/20 bg-card/40 backdrop-blur-xl overflow-hidden rounded-[2rem] shadow-2xl">
+            <CardHeader className="pb-3 border-b border-primary/10 bg-primary/5">
+                <div className="flex flex-col items-center gap-4 text-center">
+                    <div className="w-24 h-24 rounded-3xl bg-card border-2 border-primary/20 flex items-center justify-center text-3xl font-black text-primary shadow-xl">
+                        {(candidate.name || "C").charAt(0)}
+                    </div>
+                    <div className="space-y-1">
+                        <h1 className="text-2xl font-black tracking-tighter leading-none">{candidate.name}</h1>
+                        <p className="text-xs text-muted-foreground font-medium uppercase tracking-widest">{candidate.role || "Specialist"}</p>
+                    </div>
+                    <div className="flex flex-col gap-1.5 w-full pt-2">
+                        <div className="p-4 rounded-3xl bg-primary/10 border border-primary/20 shadow-inner">
+                            <p className="text-4xl font-black text-primary leading-none mb-1">{candidate.score || 0}%</p>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Match Intensity</p>
+                        </div>
+                    </div>
+                </div>
             </CardHeader>
-            <CardContent className="grid gap-4">
-               <div className="flex flex-col gap-4">
-                  <Button className="w-full bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20" size="lg">
-                    <Mail className="h-4 w-4 mr-2" /> Contact Candidate
-                  </Button>
-               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <Button variant="outline" onClick={handleDownload}>
-                    <Download className="mr-2 h-4 w-4" /> Resume
-                </Button>
-                <Button variant="outline">
-                    <Copy className="mr-2 h-4 w-4" /> Share
-                </Button>
-              </div>
-              <Separator />
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Actions</p>
-                <Button 
-                  className="w-full" 
-                  variant={candidate.status === 'Accepted' ? 'default' : 'outline'}
-                  onClick={handleAccept}
-                  disabled={candidate.status === 'Accepted'}
-                >
-                  <Check className="mr-2 h-4 w-4" /> Accept Candidate
-                </Button>
-                <Button 
-                  className="w-full" 
-                  variant={candidate.status === 'Rejected' ? 'destructive' : 'outline'}
-                  onClick={handleReject}
-                  disabled={candidate.status === 'Rejected'}
-                >
-                  <X className="mr-2 h-4 w-4" /> Reject Candidate
-                </Button>
-                <Button 
-                  className="w-full" 
-                  variant="destructive"
-                  onClick={() => setIsDeleteDialogOpen(true)}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" /> Delete Profile
-                </Button>
-              </div>
+            <CardContent className="p-4 space-y-4">
+                <div className="grid gap-2">
+                    <div className="flex items-center gap-3 py-2 px-3 rounded-xl bg-muted/30 border border-border/50 text-[11px] font-medium text-muted-foreground">
+                        <Mail className="h-4 w-4 text-primary" /> {candidate.email}
+                    </div>
+                    <div className="flex items-center gap-3 py-2 px-3 rounded-xl bg-muted/30 border border-border/50 text-[11px] font-medium text-muted-foreground">
+                        <MapPin className="h-4 w-4 text-primary" /> Remote / Global
+                    </div>
+                    <div className="flex items-center gap-3 py-2 px-3 rounded-xl bg-muted/30 border border-border/50 text-[11px] font-medium text-muted-foreground">
+                        <Calendar className="h-4 w-4 text-primary" /> Recent Application
+                    </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-2 pt-2">
+                    <Button variant="outline" className="rounded-2xl h-11 border-primary/20 hover:bg-primary/10 text-primary font-bold" onClick={handleAccept}>
+                        <Check className="h-4 w-4 mr-1.5" /> Accept
+                    </Button>
+                    <Button variant="outline" className="rounded-2xl h-11 border-destructive/20 text-destructive hover:bg-destructive/10 font-bold" onClick={handleReject}>
+                        <X className="h-4 w-4 mr-1.5" /> Reject
+                    </Button>
+                </div>
             </CardContent>
           </Card>
 
-          {/* AI Recommendations */}
-          <Card>
-            <CardHeader>
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle>AI Analysis Settings</CardTitle>
-                      <CardDescription>Choose an AI persona for evaluation</CardDescription>
-                    </div>
-                  </div>
-                  <div className="flex gap-2 p-1 bg-muted rounded-md mb-2">
+          <Card className="border-primary/20 bg-card/40 backdrop-blur-xl overflow-hidden rounded-[2rem] shadow-xl">
+             <CardHeader className="py-3 border-b border-primary/10 bg-primary/5">
+               <CardTitle className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                 <Flame className="h-3.5 w-3.5 text-orange-500" /> Intelligence Settings
+               </CardTitle>
+             </CardHeader>
+             <CardContent className="p-4 space-y-4">
+                <div className="space-y-3">
+                  <p className="text-[11px] font-bold text-muted-foreground uppercase opacity-70">AI Persona Select</p>
+                  <div className="flex gap-1 p-1 bg-muted/50 border border-border/50 rounded-2xl">
                     {['expert', 'hacker', 'architect'].map((p) => (
                       <button 
                         key={p}
                         onClick={() => setSelectedPersona(p)}
-                        className={`flex-1 px-2 py-1 text-xs rounded-sm transition-all capitalize ${selectedPersona === p ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                        className={`flex-1 px-2 py-2 text-[10px] font-black rounded-xl transition-all capitalize ${selectedPersona === p ? 'bg-background shadow-lg text-primary scale-[1.05]' : 'text-muted-foreground hover:text-foreground'}`}
                       >
                         {p}
                       </button>
                     ))}
                   </div>
-                  {!recommendation && !candidate.analysis?.recommendation && !loadingRecommendation && (
-                    <Button size="sm" onClick={fetchRecommendation} className="w-full">
-                        <Sparkles className="mr-2 h-4 w-4" /> Analyze as {selectedPersona === 'expert' ? 'Expert Auditor' : selectedPersona === 'hacker' ? 'Startup Hacker' : 'System Architect'}
-                    </Button>
-                  )}
                 </div>
-            </CardHeader>
-            <CardContent>
-              {loadingRecommendation ? (
-                <div className="text-center py-4 space-y-2">
-                  <div className="flex justify-center"><Bot className="h-8 w-8 text-primary animate-bounce" /></div>
-                  <p className="text-sm text-muted-foreground italic">AI Brain is thinking...</p>
-                </div>
-              ) : (recommendation || candidate.analysis?.recommendation) ? (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Badge className={
-                      (recommendation || candidate.analysis).recommendation === 'Strong Hire' ? 'bg-green-600' :
-                      (recommendation || candidate.analysis).recommendation === 'Hire' ? 'bg-blue-600' :
-                      (recommendation || candidate.analysis).recommendation === 'Maybe' ? 'bg-yellow-600' :
-                      'bg-red-600'
-                    }>
-                      {(recommendation || candidate.analysis).recommendation}
-                    </Badge>
-                    <span className="text-sm text-muted-foreground">
-                      {(recommendation || candidate.analysis).confidence}% confident
-                    </span>
+
+                <Button className="w-full rounded-2xl py-8 h-auto flex flex-col items-center gap-1 font-black shadow-xl shadow-primary/20 group" onClick={fetchRecommendation} disabled={loadingRecommendation}>
+                  <div className="flex items-center gap-2 text-sm uppercase tracking-tighter">
+                    <RotateCcw className={`h-4 w-4 ${loadingRecommendation ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
+                    {loadingRecommendation ? "Synchronizing Brain..." : "Generate Insights"}
                   </div>
-                  <p className="text-sm">{(recommendation || candidate.analysis).reasoning}</p>
-                  
-                  {(recommendation || candidate.analysis).highlights && (recommendation || candidate.analysis).highlights.length > 0 && (
-                    <div>
-                      <p className="text-sm font-medium mb-2">Key Highlights:</p>
-                      <ul className="text-sm space-y-1">
-                        {(recommendation || candidate.analysis).highlights.map((h, i) => (
-                          <li key={i} className="flex items-start gap-2">
-                            <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5" />
-                            <span>{h}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {(recommendation || candidate.analysis).red_flags && (recommendation || candidate.analysis).red_flags.length > 0 && (
-                    <div>
-                      <p className="text-sm font-medium mb-2">Red Flags:</p>
-                      <ul className="text-sm space-y-1">
-                        {(recommendation || candidate.analysis).red_flags.map((f, i) => (
-                          <li key={i} className="flex items-start gap-2">
-                            <XCircle className="h-4 w-4 text-red-600 mt-0.5" />
-                            <span>{f}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {(recommendation || candidate.analysis).candidate_feedback && (
-                    <div className="mt-4 p-4 rounded-lg bg-primary/5 border border-primary/10">
-                      <p className="text-sm font-semibold mb-2 flex items-center text-primary">
-                        <Bot className="mr-2 h-4 w-4" /> Growth Focused Feedback
-                      </p>
-                      <p className="text-sm italic text-muted-foreground leading-relaxed">
-                        "{(recommendation || candidate.analysis).candidate_feedback}"
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Market Gap Analysis (L3 Expansion) */}
-                  {(recommendation || candidate.analysis)?.market_gap_analysis && (
-                    <div className="mt-6 p-4 rounded-2xl bg-gradient-to-br from-yellow-500/10 to-transparent border border-yellow-500/20">
-                      <div className="flex items-center gap-2 mb-3">
-                        <BarChart3 className="h-4 w-4 text-yellow-600" />
-                        <p className="text-xs font-bold uppercase text-yellow-700">Market Gap Analysis</p>
-                        <Badge variant="outline" className="ml-auto text-[8px] border-yellow-500/30 text-yellow-700">
-                          Demand: {(recommendation || candidate.analysis).market_gap_analysis.demand_forecast}
-                        </Badge>
-                      </div>
-                      <div className="space-y-3">
-                        <div>
-                          <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Missing Trending Skills:</p>
-                          <div className="flex flex-wrap gap-1">
-                            {(recommendation || candidate.analysis).market_gap_analysis.trending_skills_missing.map((s, i) => (
-                              <Badge key={i} variant="secondary" className="text-[9px] bg-background/50">{s}</Badge>
-                            ))}
-                          </div>
-                        </div>
-                        <p className="text-xs leading-relaxed text-muted-foreground">
-                          <span className="font-bold text-foreground">Leverage:</span> {(recommendation || candidate.analysis).market_gap_analysis.unique_market_leverage}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="mt-6 pt-6 border-t border-primary/10 flex items-center justify-between">
-                    <div className="flex flex-col">
-                        <p className="text-[10px] font-bold uppercase text-muted-foreground">Rate this Analysis</p>
-                        <p className="text-[8px] opacity-50">Helps AI learn your preferences</p>
-                    </div>
-                    <div className="flex gap-2">
-                        <Button 
-                            variant={analysisRating === 'good' ? 'default' : 'outline'} 
-                            size="sm" 
-                            className="h-8 w-8 p-0 rounded-full"
-                            onClick={() => {
-                                setAnalysisRating('good')
-                                toast.success("Thanks! We'll keep this style.")
-                            }}
-                        >
-                            <ThumbsUp className="h-3 w-3" />
-                        </Button>
-                        <Button 
-                            variant={analysisRating === 'bad' ? 'destructive' : 'outline'} 
-                            size="sm" 
-                            className="h-8 w-8 p-0 rounded-full"
-                            onClick={() => {
-                                setAnalysisRating('bad')
-                                toast.info("Feedback noted. Try regenerating with a different persona.")
-                            }}
-                        >
-                            <ThumbsDown className="h-3 w-3" />
-                        </Button>
-                    </div>
-                  </div>
-
-                  <Button variant="ghost" size="sm" className="w-full mt-4 text-[10px] opacity-50 hover:opacity-100" onClick={fetchRecommendation}>
-                    <RotateCcw className="mr-2 h-3 w-3" /> Force Regenerate
-                  </Button>
-                </div>
-              ) : (
-                <div className="text-center py-6 border-2 border-dashed rounded-lg">
-                  <Bot className="h-8 w-8 text-muted-foreground mx-auto mb-2 opacity-50" />
-                  <p className="text-sm text-muted-foreground mb-4">Click below to generate an AI hiring recommendation based on the JD.</p>
-                  <Button variant="secondary" size="sm" onClick={fetchRecommendation}>
-                    Generate with AI
-                  </Button>
-                </div>
-              )}
-            </CardContent>
+                  <span className="text-[9px] font-bold opacity-60 uppercase tracking-widest">{selectedPersona === 'expert' ? 'Expert Auditor' : selectedPersona === 'hacker' ? 'Startup Hacker' : 'System Architect'}</span>
+                </Button>
+             </CardContent>
           </Card>
 
-          {/* Target Job Description */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Target Job Description</CardTitle>
-              <CardDescription>JD used for this analysis</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-40 text-sm italic text-muted-foreground whitespace-pre-wrap">
-                {candidate.job_description || "No job description provided."}
-              </ScrollArea>
-            </CardContent>
-          </Card>
-
-          {/* Fairness Audit */}
-          {(recommendation || candidate.analysis)?.fairness_audit && (
-            <Card className="border-primary/20 bg-primary/5">
-                <CardHeader>
-                    <div className="flex items-center gap-2">
-                        <CheckCircle2 className="h-5 w-5 text-green-500" />
-                        <CardTitle className="text-lg">Fairness Audit</CardTitle>
-                    </div>
-                    <CardDescription>AI verification of claims & transparency</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="flex justify-between items-center text-sm">
-                        <span className="text-muted-foreground">Evidence Density</span>
-                        <Badge variant="secondary" className="capitalize">
-                            {(recommendation || candidate.analysis).fairness_audit.evidence_density}
-                        </Badge>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                        <span className="text-muted-foreground">Seniority Alignment</span>
-                        <Badge variant="outline" className="capitalize">
-                            {(recommendation || candidate.analysis).fairness_audit.seniority_alignment}
-                        </Badge>
-                    </div>
-                    <div className="p-3 rounded bg-card border text-xs text-muted-foreground italic">
-                        "{(recommendation || candidate.analysis).fairness_audit.notes}"
-                    </div>
-                </CardContent>
-            </Card>
-          )}
-
-          {/* Consensus Reliability (Level 3) */}
-          {(recommendation || candidate.analysis)?.consensus_metrics && (
-                <Card className="border-primary/20 bg-primary/5 overflow-hidden">
-                    <CardHeader className="py-3 px-4 flex flex-row items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <ShieldCheck className="h-4 w-4 text-primary" />
-                            <CardTitle className="text-sm">Consensus Reliability</CardTitle>
-                        </div>
-                        <Badge variant={(recommendation || candidate.analysis).consensus_metrics.reliability === "High" ? "default" : "destructive"} className="text-[9px]">
-                            {(recommendation || candidate.analysis).consensus_metrics.reliability}
-                        </Badge>
-                    </CardHeader>
-                    <CardContent className="py-2 px-4 pb-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-1">
-                                <p className="text-[10px] uppercase text-muted-foreground">Gemini Vote</p>
-                                <p className="text-lg font-black">{(recommendation || candidate.analysis).consensus_metrics.gemini_score}</p>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-[10px] uppercase text-muted-foreground">Groq Vote</p>
-                                <p className="text-lg font-black">{(recommendation || candidate.analysis).consensus_metrics.groq_score}</p>
-                            </div>
-                        </div>
-                        <div className="mt-3 pt-3 border-t border-primary/10 flex items-center justify-between">
-                            <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                                <AlertCircle className="h-3 w-3" /> Variance: {(recommendation || candidate.analysis).consensus_metrics.variance}%
-                            </div>
-                            <p className="text-[8px] italic opacity-50">Combined Llama 3 & Gemini insight</p>
-                        </div>
-                    </CardContent>
-                </Card>
-          )}
-
-            {/* Interview Prep Kit (L3 Expansion) */}
-            {(recommendation || candidate.analysis)?.interview_prep_kit && (
-                <Card className="border-primary/20 bg-primary/5">
-                    <CardHeader className="pb-3 text-center border-b border-primary/10">
-                        <div className="p-3 rounded-full bg-primary/20 w-fit mx-auto mb-2">
-                            <MessageSquareQuote className="h-6 w-6 text-primary" />
-                        </div>
-                        <CardTitle className="text-lg">Recruiter Interview Playbook</CardTitle>
-                        <CardDescription className="text-xs">Tailored strategy for {(candidate.name || "this candidate").split(' ')[0]}</CardDescription>
-                    </CardHeader>
-                    <CardContent className="pt-6 space-y-6">
-                        <div className="space-y-4">
-                            <p className="text-xs font-bold text-primary uppercase">Killer Questions (Tier 1):</p>
-                            {(recommendation || candidate.analysis).interview_prep_kit.killer_questions.map((q, i) => (
-                                <div key={i} className="p-4 rounded-xl bg-background border border-primary/10 space-y-3">
-                                    <p className="text-sm font-semibold text-foreground">"{q.question}"</p>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-1">
-                                            <p className="text-[9px] uppercase font-bold text-green-600">Perfect Answer Looks Like:</p>
-                                            <p className="text-[10px] text-muted-foreground leading-tight">{q.expected_answer}</p>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <p className="text-[9px] uppercase font-bold text-red-600">The Trap to Avoid:</p>
-                                            <p className="text-[10px] text-muted-foreground leading-tight">{q.trap_to_avoid}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                        <div className="p-4 rounded-xl bg-background border border-dashed border-primary/20">
-                           <p className="text-xs font-bold text-muted-foreground uppercase mb-2">Internal Recruiter Note:</p>
-                           <p className="text-xs italic leading-relaxed text-muted-foreground">
-                            {(recommendation || candidate.analysis).interview_prep_kit.recruiter_cheat_sheet}
-                           </p>
-                        </div>
-                    </CardContent>
-                </Card>
-            )}
-
-          {/* Score Analysis */}
-          <Card>
-            <CardHeader>
-                <CardTitle>Score Analysis</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <div className="flex items-center justify-center py-6">
-                    <div className="relative flex items-center justify-center h-32 w-32 rounded-full border-8 border-primary/20">
-                        <span className="text-4xl font-bold">{score}%</span>
-                        <svg className="absolute top-0 left-0 h-full w-full rotate-[-90deg]" viewBox="0 0 100 100">
-                             <circle
-                                cx="50"
-                                cy="50"
-                                r="46"
-                                fill="transparent"
-                                stroke="currentColor"
-                                strokeWidth="8"
-                                strokeDasharray="290"
-                                strokeDashoffset={290 - (290 * score) / 100} 
-                                className="text-primary transition-all duration-1000 ease-out"
-                             />
-                        </svg>
-                    </div>
-                </div>
-                <div className="space-y-4">
-                    <div className="space-y-1">
-                        <div className="flex items-center justify-between text-sm">
-                            <span>Technical Skills</span>
-                            <span className="font-bold">{technical}/100</span>
-                        </div>
-                        <Progress value={technical} className="h-2" />
-                    </div>
-                    <div className="space-y-1">
-                        <div className="flex items-center justify-between text-sm">
-                            <span>Experience Relevance</span>
-                            <span className="font-bold">{experience}/100</span>
-                        </div>
-                        <Progress value={experience} className="h-2" />
-                    </div>
-                    <div className="space-y-1">
-                        <div className="flex items-center justify-between text-sm">
-                            <span>Education</span>
-                            <span className="font-bold">{education}/100</span>
-                        </div>
-                        <Progress value={education} className="h-2" />
-                    </div>
-                    <div className="space-y-1">
-                        <div className="flex items-center justify-between text-sm">
-                            <span>Soft Skills</span>
-                            <span className="font-bold">{softSkills}/100</span>
-                        </div>
-                        <Progress value={softSkills} className="h-2" />
-                    </div>
-                    <div className="space-y-1">
-                        <div className="flex items-center justify-between text-sm">
-                            <span>Culture Alignment</span>
-                            <span className="font-bold">{culture}/100</span>
-                        </div>
-                        <Progress value={culture} className="h-2" />
-                    </div>
-                </div>
-            </CardContent>
+          <Card className="border-primary/20 bg-card/40 backdrop-blur-xl overflow-hidden rounded-[2rem]">
+             <CardContent className="p-4 grid grid-cols-3 gap-2">
+                <Button variant="outline" className="rounded-xl h-12 flex flex-col gap-1 border-primary/10" onClick={handleDownload} title="Download Resume">
+                    <Download className="h-4 w-4 text-primary" />
+                    <span className="text-[8px] font-bold uppercase tracking-tighter">PDF</span>
+                </Button>
+                <Button variant="outline" className="rounded-xl h-12 flex flex-col gap-1 border-primary/10" title="Share Profile">
+                    <Copy className="h-4 w-4 text-primary" />
+                    <span className="text-[8px] font-bold uppercase tracking-tighter">Share</span>
+                </Button>
+                <Button variant="outline" className="rounded-xl h-12 flex flex-col gap-1 border-destructive/20 text-destructive hover:bg-destructive/10" onClick={() => setIsDeleteDialogOpen(true)}>
+                    <Trash2 className="h-4 w-4" />
+                    <span className="text-[8px] font-bold uppercase tracking-tighter text-destructive">Kill</span>
+                </Button>
+             </CardContent>
           </Card>
         </div>
 
-        {/* Right Column: AI Analysis */}
-        <div className="md:col-span-2 space-y-6">
-            <Card className="h-full flex flex-col border-none shadow-none bg-transparent">
-                <Tabs defaultValue="report" className="h-full flex flex-col">
-                    <div className="flex items-center justify-between mb-4">
-                        <TabsList className="bg-muted/50 p-1">
-                            <TabsTrigger value="report" className="text-[10px]">Assessment</TabsTrigger>
-                            <TabsTrigger value="interview" className="text-[10px]"><Brain className="mr-2 h-3 w-3" /> Interview</TabsTrigger>
-                            <TabsTrigger value="ghost" className="text-[10px]"><Bot className="mr-2 h-3 w-3" /> Ghost Chat</TabsTrigger>
-                            <TabsTrigger value="intelligence" className="text-[10px]"><Sparkles className="mr-2 h-3 w-3" /> Intelligence</TabsTrigger>
-                            <TabsTrigger value="predictive" className="text-[10px] bg-primary/5 border-l border-primary/20 ml-2"><LineChart className="mr-2 h-3 w-3" /> Predictive</TabsTrigger>
-                        </TabsList>
-                    </div>
+        {/* Main Content Dashboard (2/3) */}
+        <div className="lg:col-span-2 space-y-6 min-h-screen">
+          <Tabs defaultValue="report" className="w-full">
+            <div className="flex items-center justify-between mb-6 p-1.5 bg-card/40 backdrop-blur-xl border border-primary/10 rounded-2xl sticky top-8 z-30 shadow-xl">
+              <TabsList className="bg-transparent border-none w-full grid grid-cols-6 h-12">
+                <TabsTrigger value="report" className="text-[10px] font-black uppercase tracking-widest rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">Report</TabsTrigger>
+                <TabsTrigger value="intelligence" className="text-[10px] font-black uppercase tracking-widest rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">Intel</TabsTrigger>
+                <TabsTrigger value="interview" className="text-[10px] font-black uppercase tracking-widest rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">Prep</TabsTrigger>
+                <TabsTrigger value="ghost" className="text-[10px] font-black uppercase tracking-widest rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">Ghost</TabsTrigger>
+                <TabsTrigger value="outreach" className="text-[10px] font-black uppercase tracking-widest rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">Reach</TabsTrigger>
+                <TabsTrigger value="predictive" className="text-[10px] font-black uppercase tracking-widest rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">Matrix</TabsTrigger>
+              </TabsList>
+            </div>
+            <TabsContent value="report" className="mt-0">
+               <Card className="rounded-[2rem] border-primary/20 bg-card/40 backdrop-blur-xl overflow-hidden min-h-[600px]">
+                 <CardContent className="p-8 space-y-8">
+                   {loadingRecommendation ? (
+                     <div className="flex flex-col items-center justify-center py-20 space-y-6">
+                        <div className="relative">
+                            <Bot className="h-16 w-16 text-primary animate-bounce" />
+                            <div className="absolute -top-1 -right-1 h-4 w-4 bg-green-500 rounded-full animate-ping" />
+                        </div>
+                        <div className="text-center">
+                            <p className="text-xl font-black tracking-tighter uppercase italic text-primary">AI Neural Matrix Loading...</p>
+                            <p className="text-sm text-muted-foreground font-medium">Decoding candidate potential using Groq Llama 3...</p>
+                        </div>
+                     </div>
+                   ) : (recommendation || candidate.analysis?.recommendation) ? (
+                     <div className="animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                        <div className="flex items-center justify-between mb-8 pb-6 border-b border-primary/10">
+                           <div className="space-y-1">
+                             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Hire Verdict</p>
+                             <div className="flex items-center gap-3">
+                                <Badge className={`text-sm px-4 py-1.5 rounded-full font-black uppercase tracking-tight shadow-xl ${
+                                    (recommendation || candidate.analysis).recommendation === 'Strong Hire' ? 'bg-green-600 hover:bg-green-700' :
+                                    (recommendation || candidate.analysis).recommendation === 'Hire' ? 'bg-blue-600 hover:bg-blue-700' :
+                                    (recommendation || candidate.analysis).recommendation === 'Maybe' ? 'bg-yellow-600 hover:bg-yellow-700' :
+                                    'bg-red-600 hover:bg-red-700'
+                                }`}>
+                                    {(recommendation || candidate.analysis).recommendation}
+                                </Badge>
+                                <span className="text-xs font-bold text-muted-foreground italic">
+                                    {(recommendation || candidate.analysis).confidence}% Confidence Rating
+                                </span>
+                             </div>
+                           </div>
+                           <div className="p-4 bg-primary/5 rounded-3xl border border-primary/10 text-right">
+                              <p className="text-[10px] font-black uppercase text-primary mb-1">Generated Insight</p>
+                              <p className="text-[10px] text-muted-foreground italic">{new Date().toLocaleDateString()}</p>
+                           </div>
+                        </div>
 
-                    <TabsContent value="report" className="flex-1 mt-0">
-                        <Card className="h-full">
+                        <div className="grid md:grid-cols-2 gap-8">
+                           <div className="space-y-6">
+                              <div>
+                                 <h3 className="text-sm font-black uppercase tracking-wider mb-4 flex items-center gap-2 text-primary">
+                                    <CheckCircle2 className="h-4 w-4" /> Core Strengths
+                                 </h3>
+                                 <ul className="space-y-3">
+                                    {(recommendation || candidate.analysis)?.strengths?.map((s, i) => (
+                                        <li key={i} className="flex gap-3 text-sm text-muted-foreground bg-green-500/5 p-3 rounded-xl border border-green-500/10 hover:border-green-500/30 transition-all">
+                                            <div className="h-5 w-5 rounded-full bg-green-500/20 flex items-center justify-center shrink-0">
+                                                <div className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                                            </div>
+                                            {s}
+                                        </li>
+                                    ))}
+                                 </ul>
+                              </div>
+
+                              <div>
+                                 <h3 className="text-sm font-black uppercase tracking-wider mb-4 flex items-center gap-2 text-primary">
+                                    <XCircle className="h-4 w-4" /> Technical Gaps
+                                 </h3>
+                                 <ul className="space-y-3">
+                                    {(recommendation || candidate.analysis)?.weaknesses?.map((w, i) => (
+                                        <li key={i} className="flex gap-3 text-sm text-muted-foreground bg-red-500/5 p-3 rounded-xl border border-red-500/10 hover:border-red-500/30 transition-all">
+                                            <div className="h-5 w-5 rounded-full bg-red-500/20 flex items-center justify-center shrink-0">
+                                                <div className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                                            </div>
+                                            {w}
+                                        </li>
+                                    ))}
+                                 </ul>
+                              </div>
+                           </div>
+
+                           <div className="space-y-6">
+                              <div className="p-6 bg-primary/5 rounded-[2rem] border border-primary/10 shadow-inner">
+                                 <h3 className="text-xs font-black uppercase tracking-wider mb-4 flex items-center gap-2">
+                                    <Bot className="h-4 w-4 text-primary" /> Hiring Reasoning
+                                 </h3>
+                                 <p className="text-sm leading-relaxed text-muted-foreground italic">
+                                    "{(recommendation || candidate.analysis).reasoning}"
+                                 </p>
+                              </div>
+
+                              {(recommendation || candidate.analysis).candidate_feedback && (
+                                <div className="p-6 bg-muted/30 rounded-[2rem] border border-border/50">
+                                    <h3 className="text-xs font-black uppercase tracking-wider mb-4 flex items-center gap-2">
+                                        <MessageSquareQuote className="h-4 w-4 text-primary" /> Growth Advice
+                                    </h3>
+                                    <p className="text-sm leading-relaxed text-muted-foreground">
+                                        {(recommendation || candidate.analysis).candidate_feedback}
+                                    </p>
+                                </div>
+                              )}
+                           </div>
+                        </div>
+
+                        {/* Summary Visualization */}
+                        <div className="mt-12 p-8 bg-card/60 rounded-[2rem] border border-primary/10 grid grid-cols-2 md:grid-cols-5 gap-4">
+                           {chartData.map((d, i) => (
+                              <div key={i} className="text-center space-y-2">
+                                 <p className="text-[9px] font-black uppercase text-muted-foreground">{d.name}</p>
+                                 <p className="text-2xl font-black text-primary">{d.score}%</p>
+                                 <Progress value={d.score} className="h-1.5 bg-primary/10" />
+                              </div>
+                           ))}
+                        </div>
+                     </div>
+                   ) : (
+                     <div className="flex flex-col items-center justify-center py-32 space-y-6 opacity-40">
+                        <Bot className="h-16 w-16" />
+                        <div className="text-center">
+                            <p className="text-lg font-black tracking-tight uppercase">Neural Analysis Required</p>
+                            <p className="text-sm">Initiate intelligence generation from the sidebar to begin.</p>
+                        </div>
+                     </div>
+                   )}
+                 </CardContent>
+               </Card>
+            </TabsContent>
+
+            <TabsContent value="intelligence" className="mt-0 space-y-6">
+                <div className="grid md:grid-cols-2 gap-6">
+                    {/* Score Analysis Card */}
+                    <Card className="rounded-[2rem] border-primary/20 bg-card/40 backdrop-blur-xl overflow-hidden">
+                        <CardHeader>
+                            <CardTitle className="text-sm font-black uppercase tracking-widest">Radar Alignment</CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-6 pt-0">
+                            <div className="h-[300px] w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
+                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="oklch(var(--border) / 0.1)" />
+                                        <XAxis type="number" domain={[0, 100]} hide />
+                                        <YAxis dataKey="name" type="category" stroke="oklch(var(--muted-foreground))" fontSize={10} width={80} fontWeight="bold" />
+                                        <Tooltip 
+                                            contentStyle={{ backgroundColor: 'oklch(var(--card))', borderRadius: '12px', border: '1px solid oklch(var(--primary) / 0.2)' }}
+                                            cursor={{ fill: 'oklch(var(--primary) / 0.05)' }}
+                                        />
+                                        <Bar dataKey="score" fill="oklch(var(--primary))" radius={[0, 12, 12, 0]} barSize={24}>
+                                            {chartData.map((entry, index) => (
+                                                <Cell key={index} fill={index % 2 === 0 ? 'oklch(var(--primary))' : 'oklch(var(--primary) / 0.6)'} />
+                                            ))}
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Fairness Audit */}
+                    {(recommendation || candidate.analysis)?.fairness_audit && (
+                        <Card className="rounded-[2rem] border-primary/20 bg-primary/5 backdrop-blur-xl overflow-hidden shadow-inner">
                             <CardHeader>
-                                <CardTitle>AI Assessment Report</CardTitle>
-                                <CardDescription>Generated by Gemini Pro Vision</CardDescription>
+                                <div className="flex items-center gap-2">
+                                    <ShieldCheck className="h-5 w-5 text-green-500" />
+                                    <CardTitle className="text-sm font-black uppercase tracking-widest">Fairness Protocol</CardTitle>
+                                </div>
                             </CardHeader>
-                            <CardContent className="space-y-8">
-                                <div>
-                                    <h3 className="font-semibold mb-3 flex items-center">
-                                        <CheckCircle2 className="mr-2 h-5 w-5 text-green-500" />
-                                        Key Strengths
-                                    </h3>
-                                    <ul className="space-y-2 text-sm text-muted-foreground list-disc pl-5">
-                                        {(recommendation || candidate.analysis)?.strengths?.map((s, i) => <li key={i}>{s}</li>)}
-                                    </ul>
+                            <CardContent className="space-y-6">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="p-4 bg-background/40 rounded-2xl border border-border/50">
+                                        <span className="text-[10px] font-bold text-muted-foreground uppercase">Evidence Density</span>
+                                        <p className="text-xl font-black mt-1">{(recommendation || candidate.analysis).fairness_audit.evidence_density}</p>
+                                    </div>
+                                    <div className="p-4 bg-background/40 rounded-2xl border border-border/50">
+                                        <span className="text-[10px] font-bold text-muted-foreground uppercase">Seniority Sync</span>
+                                        <p className="text-xl font-black mt-1">{(recommendation || candidate.analysis).fairness_audit.seniority_alignment}</p>
+                                    </div>
                                 </div>
-
-                                <Separator />
-
-                                <div>
-                                    <h3 className="font-semibold mb-3 flex items-center">
-                                        <XCircle className="mr-2 h-5 w-5 text-red-500" />
-                                        Potential Gaps
-                                    </h3>
-                                    <ul className="space-y-2 text-sm text-muted-foreground list-disc pl-5">
-                                        {(recommendation || candidate.analysis)?.weaknesses?.map((w, i) => <li key={i}>{w}</li>)}
-                                    </ul>
+                                <div className="p-4 rounded-3xl bg-green-500/5 border border-green-500/10 text-xs italic leading-relaxed text-muted-foreground">
+                                    "{(recommendation || candidate.analysis).fairness_audit.notes}"
                                 </div>
+                            </CardContent>
+                        </Card>
+                    )}
+                </div>
 
-                                <Separator />
+                <div className="grid md:grid-cols-2 gap-6">
+                    {/* Market Gap Analysis */}
+                    {(recommendation || candidate.analysis)?.market_gap_analysis && (
+                        <Card className="rounded-[2rem] border-primary/20 bg-card/40 backdrop-blur-xl overflow-hidden">
+                            <CardHeader className="py-4 border-b border-primary/10 bg-primary/5">
+                                <div className="flex items-center gap-2">
+                                    <BarChart3 className="h-4 w-4 text-primary" />
+                                    <CardTitle className="text-sm font-black uppercase tracking-widest">Market Leverage</CardTitle>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="p-6 space-y-6">
+                                <div className="flex justify-between items-center bg-background/40 p-3 rounded-2xl border">
+                                    <span className="text-xs font-bold text-muted-foreground">Global Demand</span>
+                                    <Badge variant="outline" className="text-xs font-black uppercase">{(recommendation || candidate.analysis).market_gap_analysis.demand_forecast}</Badge>
+                                </div>
+                                <div className="space-y-2">
+                                    <p className="text-[10px] font-bold text-muted-foreground uppercase">Critical Gaps vs Market:</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {(recommendation || candidate.analysis).market_gap_analysis.trending_skills_missing.map((s, i) => (
+                                            <Badge key={i} variant="secondary" className="text-[10px] px-3 py-1 bg-red-500/10 text-red-600 border-red-500/20">{s}</Badge>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="p-4 rounded-2xl bg-primary/5 text-xs text-muted-foreground leading-relaxed">
+                                    <span className="font-black text-primary block mb-1">UNIQUE EDGE:</span>
+                                    {(recommendation || candidate.analysis).market_gap_analysis.unique_market_leverage}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
 
-                                {candidate.extracted_data?.projects && candidate.extracted_data.projects.length > 0 && (
-                                    <>
-                                        <div>
-                                            <h3 className="font-semibold mb-4 flex items-center">
-                                                <Bot className="mr-2 h-5 w-5 text-primary" />
-                                                Extracted Projects
-                                            </h3>
-                                            <div className="grid gap-4">
-                                                {candidate.extracted_data.projects.map((p, i) => (
-                                                    <div key={i} className="p-3 rounded-lg border bg-muted/30">
-                                                        <p className="font-medium text-sm">{p.title}</p>
-                                                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{p.description}</p>
-                                                        {p.technologies && (
-                                                            <div className="flex flex-wrap gap-1 mt-2">
-                                                                {Array.isArray(p.technologies) ? p.technologies.map((t, ti) => (
-                                                                    <Badge key={ti} variant="outline" className="text-[10px] py-0 px-1">{t}</Badge>
-                                                                )) : <Badge variant="outline" className="text-[10px] py-0 px-1">{p.technologies}</Badge>}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                ))}
-                                            </div>
+                    {/* Consensus metrics */}
+                    {(recommendation || candidate.analysis)?.consensus_metrics && (
+                        <Card className="rounded-[2rem] border-primary/20 bg-card/40 backdrop-blur-xl overflow-hidden">
+                            <CardHeader className="py-4 border-b border-primary/10 bg-primary/5">
+                                <div className="flex items-center gap-2">
+                                    <Zap className="h-4 w-4 text-yellow-500" />
+                                    <CardTitle className="text-sm font-black uppercase tracking-widest">AI Multi-Model Consensus</CardTitle>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="p-6">
+                                <div className="grid grid-cols-2 gap-6 relative">
+                                    <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-primary/10 hidden md:block" />
+                                    <div className="space-y-4 text-center">
+                                        <p className="text-[10px] font-bold text-muted-foreground uppercase">Gemini-Pro</p>
+                                        <p className="text-4xl font-black text-primary">{(recommendation || candidate.analysis).consensus_metrics.gemini_score}</p>
+                                    </div>
+                                    <div className="space-y-4 text-center">
+                                        <p className="text-[10px] font-bold text-muted-foreground uppercase">Llama-3 (Groq)</p>
+                                        <p className="text-4xl font-black text-primary">{(recommendation || candidate.analysis).consensus_metrics.groq_score}</p>
+                                    </div>
+                                </div>
+                                <div className="mt-8 pt-6 border-t border-primary/10 flex items-center justify-between">
+                                    <div className="flex gap-4">
+                                        <div className="text-[10px] font-medium text-muted-foreground flex items-center gap-1.5">
+                                            <span className="h-2 w-2 rounded-full bg-primary" /> Variance: {(recommendation || candidate.analysis).consensus_metrics.variance}%
                                         </div>
-                                        <Separator />
-                                    </>
-                                )}
-
-                                {candidate.extracted_data?.experience && Array.isArray(candidate.extracted_data.experience) && candidate.extracted_data.experience.length > 0 && (
-                                    <>
-                                        <div>
-                                            <h3 className="font-semibold mb-4 flex items-center">
-                                                <CheckCircle2 className="mr-2 h-5 w-5 text-primary" />
-                                                Work Experience
-                                            </h3>
-                                            <div className="space-y-4">
-                                                {candidate.extracted_data.experience.map((exp, i) => (
-                                                    <div key={i} className="border-l-2 border-primary/20 pl-4 py-1">
-                                                        <div className="flex justify-between items-start">
-                                                            <p className="font-medium text-sm">{exp.role}</p>
-                                                            <span className="text-[10px] text-muted-foreground">{exp.duration}</span>
-                                                        </div>
-                                                        <p className="text-xs text-primary font-medium">{exp.company}</p>
-                                                        {exp.key_points && (
-                                                            <ul className="mt-2 space-y-1">
-                                                                {Array.isArray(exp.key_points) ? exp.key_points.map((pt, pi) => (
-                                                                    <li key={pi} className="text-xs text-muted-foreground">• {pt}</li>
-                                                                )) : <li className="text-xs text-muted-foreground">• {exp.key_points}</li>}
-                                                            </ul>
-                                                        )}
-                                                    </div>
-                                                ))}
-                                            </div>
+                                        <div className="text-[10px] font-medium text-muted-foreground flex items-center gap-1.5">
+                                            <span className="h-2 w-2 rounded-full bg-green-500" /> Reliability: {(recommendation || candidate.analysis).consensus_metrics.reliability}
                                         </div>
-                                        <Separator />
-                                    </>
-                                )}
-
-                                {(recommendation || candidate.analysis)?.career_projection && (
-                                    <>
-                                        <div>
-                                            <h3 className="font-semibold mb-4 flex items-center">
-                                                <TrendingUp className="mr-2 h-5 w-5 text-primary" />
-                                                Career Trajectory Projection
-                                            </h3>
-                                            <div className="p-4 rounded-lg bg-primary/5 border border-primary/10">
-                                                <div className="flex items-center justify-between mb-2">
-                                                    <span className="text-sm font-medium">Growth Velocity:</span>
-                                                    <Badge variant="secondary" className="capitalize">{(recommendation || candidate.analysis).career_projection.trajectory}</Badge>
-                                                </div>
-                                                <div className="text-sm mb-3">
-                                                    <span className="font-medium">Potential Next Role:</span>
-                                                    <p className="text-primary mt-1">{(recommendation || candidate.analysis).career_projection.potential_role}</p>
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Growth Focus Areas:</span>
-                                                    <div className="flex flex-wrap gap-2 pt-1">
-                                                        {(recommendation || candidate.analysis).career_projection.growth_areas.map((area, idx) => (
-                                                            <Badge key={idx} variant="outline" className="text-[10px]">{area}</Badge>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <Separator />
-                                    </>
-                                )}
-
-                                <div>
-                                    <h3 className="font-semibold mb-4">Skill Match Visualization</h3>
-                                    <div className="h-[300px] w-full">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
-                                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
-                                                <XAxis type="number" domain={[0, 100]} stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                                                <YAxis dataKey="name" type="category" stroke="hsl(var(--muted-foreground))" fontSize={12} width={100} />
-                                                <Tooltip 
-                                                  contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))' }}
-                                                  itemStyle={{ color: 'hsl(var(--foreground))' }}
-                                                  cursor={{ fill: 'hsl(var(--muted)/0.2)' }}
-                                                />
-                                                <Bar dataKey="score" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} barSize={20} />
-                                            </BarChart>
-                                        </ResponsiveContainer>
                                     </div>
                                 </div>
                             </CardContent>
                         </Card>
-                    </TabsContent>
+                    )}
+                </div>
+                
+                
+                <div className="grid md:grid-cols-2 gap-6">
+                    {/* Research & Salary */}
+                    <Card className="border-primary/20 bg-card/40 backdrop-blur-xl">
+                        <CardHeader>
+                            <div className="flex items-center gap-2">
+                                <Github className="h-5 w-5" />
+                                <CardTitle className="text-sm font-black uppercase">Portfolio Research</CardTitle>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            {!researchData ? (
+                                <Button className="w-full" onClick={handleDeepResearch} disabled={loadingResearch}>
+                                    {loadingResearch ? <RotateCcw className="h-4 w-4 animate-spin mr-2" /> : <ExternalLink className="h-4 w-4 mr-2" />}
+                                    Deep Dive GitHub/Portfolio
+                                </Button>
+                            ) : (
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-medium">Technical Depth:</span>
+                                        <Badge variant="secondary">{researchData.depth_score}/100</Badge>
+                                    </div>
+                                    <p className="text-[10px] text-muted-foreground leading-relaxed italic border-l-2 pl-3">"{researchData.assessment}"</p>
+                                    <Button size="sm" variant="outline" className="w-full" onClick={handleDeepResearch}>New Search</Button>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    <Card className="border-primary/20 bg-card/40 backdrop-blur-xl">
+                        <CardHeader>
+                            <div className="flex items-center gap-2">
+                                <Coins className="h-5 w-5 text-yellow-500" />
+                                <CardTitle className="text-sm font-black uppercase">Salary Forecast</CardTitle>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            {!salaryData ? (
+                                <Button className="w-full" onClick={handlePredictSalary} disabled={loadingSalary}>
+                                    {loadingSalary ? <RotateCcw className="h-4 w-4 animate-spin mr-2" /> : <Coins className="h-4 w-4 mr-2" />}
+                                    Predict Market Range
+                                </Button>
+                            ) : (
+                                <div className="space-y-4">
+                                    <div className="p-3 bg-primary/5 rounded-lg border border-primary/20 text-center">
+                                        <p className="text-xl font-bold text-primary">{salaryData.range.mid}</p>
+                                        <p className="text-[10px] text-muted-foreground uppercase">{salaryData.range.low} - {salaryData.range.high} ({salaryData.currency})</p>
+                                    </div>
+                                    <Button size="sm" variant="outline" className="w-full" onClick={handlePredictSalary}>Recalculate</Button>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-6">
+                    {/* Interview Video Intelligence */}
+                    <Card className="border-primary/20 bg-card/40 backdrop-blur-xl">
+                        <CardHeader>
+                            <div className="flex items-center gap-2">
+                                <MonitorPlay className="h-5 w-5 text-purple-500" />
+                                <CardTitle className="text-sm font-black uppercase">Video Intel</CardTitle>
+                            </div>
+                            <CardDescription className="text-[10px]">Analyze transcripts for sentiment.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {!analysisVideo ? (
+                                <div className="space-y-4">
+                                    <textarea 
+                                        className="w-full h-24 p-2 text-[10px] bg-muted/30 rounded-lg border border-dashed resize-none focus:outline-none"
+                                        placeholder="Paste interview transcript..."
+                                        value={videoTranscript}
+                                        onChange={(e) => setVideoTranscript(e.target.value)}
+                                    />
+                                    <Button size="sm" className="w-full" onClick={handleVideoAnalysis} disabled={loadingVideo || !videoTranscript.trim()}>
+                                        {loadingVideo ? <RotateCcw className="h-3 w-3 animate-spin mr-2" /> : "Analyze Sentiment"}
+                                    </Button>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-[10px] font-medium">Accuracy</span>
+                                        <Badge variant="secondary" className="text-[9px]">{analysisVideo.technical_score}%</Badge>
+                                    </div>
+                                    <Progress value={analysisVideo.technical_score} className="h-1.5" />
+                                    <Button size="xs" variant="ghost" className="w-full text-[9px]" onClick={() => setAnalysisVideo(null)}>New Analysis</Button>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    <Card className="bg-gradient-to-br from-primary/5 to-transparent border-primary/20 bg-card/40 backdrop-blur-xl">
+                        <CardHeader>
+                            <div className="flex items-center gap-2">
+                                <Sparkles className="h-5 w-5 text-primary" />
+                                <CardTitle className="text-sm font-black uppercase">Role Architect</CardTitle>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            {!roleArchitectData ? (
+                                <Button size="sm" className="w-full bg-primary/20 hover:bg-primary/30 text-primary border-primary/30" onClick={handleRoleArchitect} disabled={loadingRoleArchitect}>
+                                    Architect Alternative Path
+                                </Button>
+                            ) : (
+                                <div className="space-y-3">
+                                    <p className="text-[10px] font-bold text-primary uppercase">Proposed Role:</p>
+                                    <p className="text-sm font-black leading-tight">{roleArchitectData.proposed_role}</p>
+                                    <Button size="xs" variant="ghost" className="w-full text-[9px]" onClick={() => setRoleArchitectData(null)}>Reset</Button>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-6">
+                    <Card className="border-primary/20 bg-card/40 backdrop-blur-xl">
+                        <CardHeader>
+                            <CardTitle className="text-sm font-black uppercase flex items-center gap-2">
+                                <Target className="h-5 w-5 text-primary" /> Culture Radar
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="h-[250px]">
+                            {candidate.analysis?.culture_radar ? (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <RadarChart cx="50%" cy="50%" outerRadius="70%" data={candidate.analysis.culture_radar}>
+                                        <PolarGrid stroke="oklch(var(--border) / 0.2)" />
+                                        <PolarAngleAxis dataKey="value" tick={{ fill: "oklch(var(--muted-foreground))", fontSize: 9 }} />
+                                        <Radar name={candidate.name} dataKey="score" stroke="oklch(var(--primary))" fill="oklch(var(--primary))" fillOpacity={0.6} />
+                                    </RadarChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center h-full text-muted-foreground opacity-50">
+                                    <p className="text-[10px] italic text-center">Re-run analysis to generate data</p>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    <Card className="border-primary/20 bg-primary/[0.02] bg-card/40 backdrop-blur-xl">
+                        <CardHeader>
+                            <CardTitle className="text-sm font-black uppercase flex items-center gap-2">
+                                <Rocket className="h-5 w-5 text-primary" /> Success Roadmap
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            {!onboardingData ? (
+                                <Button size="sm" className="w-full" onClick={handleGenerateOnboarding} disabled={loadingOnboarding}>
+                                    Architect Onboarding plan
+                                </Button>
+                            ) : (
+                                <ScrollArea className="h-[200px]">
+                                    <ul className="space-y-2">
+                                        {onboardingData.phases.map((phase, idx) => (
+                                            <li key={idx} className="text-[10px]">
+                                                <span className="font-bold text-primary">{phase.period}:</span> {phase.focus}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </ScrollArea>
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
+            </TabsContent>
+
 
                     <TabsContent value="interview" className="flex-1 mt-0">
                         <Card className="h-full">
@@ -1148,10 +1115,10 @@ export default function CandidatePage() {
                                 </div>
                             </CardHeader>
                             <CardContent className="space-y-6">
-                                {(recommendation || candidate.analysis)?.interview_questions ? (
+                                {(recommendation || candidate.analysis)?.interview_questions && Array.isArray((recommendation || candidate.analysis)?.interview_questions) ? (
                                     <div className="grid gap-4">
                                         {(recommendation || candidate.analysis)?.interview_questions
-                                            .filter(q => (q.round || 'Technical').toLowerCase() === interviewRound.toLowerCase() && q.question?.trim())
+                                            .filter(q => q && (q.round || 'Technical').toLowerCase() === interviewRound.toLowerCase() && q.question?.trim())
                                             .map((q, i) => (
                                                 <div key={i} className="p-4 rounded-lg border bg-muted/20 hover:bg-muted/40 transition-colors">
                                                     <p className="font-medium text-sm text-foreground leading-relaxed">
@@ -1166,7 +1133,7 @@ export default function CandidatePage() {
                                                     </div>
                                                 </div>
                                             ))}
-                                        {(recommendation || candidate.analysis)?.interview_questions.filter(q => (q.round || 'Technical').toLowerCase() === interviewRound.toLowerCase() && q.question?.trim()).length === 0 && (
+                                        {(recommendation || candidate.analysis)?.interview_questions.filter(q => q && (q.round || 'Technical').toLowerCase() === interviewRound.toLowerCase() && q.question?.trim()).length === 0 && (
                                             <div className="text-center py-10 text-sm text-muted-foreground">
                                                 No questions available for this round. Try regenerating the analysis.
                                             </div>
@@ -1207,8 +1174,8 @@ export default function CandidatePage() {
                         </Card>
                     </TabsContent>
 
-                    <TabsContent value="ghost" className="flex-1 mt-0 h-full">
-                        <Card className="h-[600px] flex flex-col border-primary/20 bg-primary/[0.02]">
+            <TabsContent value="ghost" className="mt-0">
+                <Card className="rounded-[2rem] border-primary/20 bg-card/40 backdrop-blur-xl overflow-hidden min-h-[600px] flex flex-col">
                             <CardHeader>
                                 <div className="flex items-center gap-2">
                                     <Bot className="h-5 w-5 text-primary" />
@@ -1342,259 +1309,6 @@ export default function CandidatePage() {
                         </Card>
                     </TabsContent>
 
-                    <TabsContent value="intelligence" className="flex-1 mt-0">
-                        <div className="grid gap-6">
-                            {/* Research & Salary */}
-                            <div className="grid md:grid-cols-2 gap-6">
-                                <Card className="border-primary/20">
-                                    <CardHeader>
-                                        <div className="flex items-center gap-2">
-                                            <Github className="h-5 w-5" />
-                                            <CardTitle className="text-lg">Portfolio Research</CardTitle>
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent>
-                                        {!researchData ? (
-                                            <Button className="w-full" onClick={handleDeepResearch} disabled={loadingResearch}>
-                                                {loadingResearch ? <RotateCcw className="h-4 w-4 animate-spin mr-2" /> : <ExternalLink className="h-4 w-4 mr-2" />}
-                                                Deep Dive GitHub/Portfolio
-                                            </Button>
-                                        ) : (
-                                            <div className="space-y-4">
-                                                <div className="flex items-center justify-between">
-                                                    <span className="text-sm font-medium">Technical Depth:</span>
-                                                    <Badge variant="secondary">{researchData.depth_score}/100</Badge>
-                                                </div>
-                                                <p className="text-xs text-muted-foreground leading-relaxed italic border-l-2 pl-3">"{researchData.assessment}"</p>
-                                                <div className="space-y-1">
-                                                    <p className="text-[10px] font-bold uppercase text-muted-foreground">Proficiency Markers:</p>
-                                                    <div className="flex flex-wrap gap-1">
-                                                        {researchData.proficiency_markers.map((m, i) => (
-                                                            <Badge key={i} variant="outline" className="text-[9px]">{m}</Badge>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                                <Button size="sm" variant="outline" className="w-full" onClick={handleDeepResearch}>New Search</Button>
-                                            </div>
-                                        )}
-                                    </CardContent>
-                                </Card>
-
-                                <Card className="border-primary/20">
-                                    <CardHeader>
-                                        <div className="flex items-center gap-2">
-                                            <Coins className="h-5 w-5 text-yellow-500" />
-                                            <CardTitle className="text-lg">Salary Forecast</CardTitle>
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent>
-                                        {!salaryData ? (
-                                            <Button className="w-full" onClick={handlePredictSalary} disabled={loadingSalary}>
-                                                {loadingSalary ? <RotateCcw className="h-4 w-4 animate-spin mr-2" /> : <Coins className="h-4 w-4 mr-2" />}
-                                                Predict Market Range
-                                            </Button>
-                                        ) : (
-                                            <div className="space-y-4">
-                                                <div className="p-3 bg-primary/5 rounded-lg border border-primary/20 text-center">
-                                                    <p className="text-2xl font-bold text-primary">{salaryData.range.mid}</p>
-                                                    <p className="text-[10px] text-muted-foreground uppercase">{salaryData.range.low} - {salaryData.range.high} ({salaryData.currency})</p>
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <p className="text-[10px] font-bold uppercase text-muted-foreground">Leverage Points:</p>
-                                                    <ul className="text-xs space-y-1">
-                                                        {salaryData.leverage_points.map((p, i) => (
-                                                            <li key={i} className="flex items-center gap-2">
-                                                                <div className="h-1 w-1 rounded-full bg-primary" /> {p}
-                                                            </li>
-                                                        ))}
-                                                    </ul>
-                                                </div>
-                                                <Button size="sm" variant="outline" className="w-full" onClick={handlePredictSalary}>Recalculate</Button>
-                                            </div>
-                                        )}
-                                    </CardContent>
-                                </Card>
-                            </div>
-
-                            {/* Interview Video Intelligence */}
-                            <Card className="border-primary/20">
-                                <CardHeader>
-                                    <div className="flex items-center gap-2">
-                                        <MonitorPlay className="h-5 w-5 text-purple-500" />
-                                        <CardTitle className="text-lg">Interview Video Intelligence</CardTitle>
-                                    </div>
-                                    <CardDescription>Analyze transcripts for technical accuracy and sentiment.</CardDescription>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                    {!analysisVideo ? (
-                                        <div className="space-y-4">
-                                            <textarea 
-                                                className="w-full h-32 p-3 text-sm bg-muted/30 rounded-lg border border-dashed resize-none focus:outline-none focus:ring-1 focus:ring-primary"
-                                                placeholder="Paste the Zoom/Meet transcript here..."
-                                                value={videoTranscript}
-                                                onChange={(e) => setVideoTranscript(e.target.value)}
-                                            />
-                                            <Button className="w-full" onClick={handleVideoAnalysis} disabled={loadingVideo || !videoTranscript.trim()}>
-                                                {loadingVideo ? <RotateCcw className="h-4 w-4 animate-spin mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
-                                                Analyze Interview Sentiment
-                                            </Button>
-                                        </div>
-                                    ) : (
-                                        <div className="grid md:grid-cols-2 gap-6">
-                                            <div className="space-y-4">
-                                                <div className="flex justify-between items-center">
-                                                    <span className="text-sm font-medium">Technical Accuracy</span>
-                                                    <Badge variant="secondary">{analysisVideo.technical_score}%</Badge>
-                                                </div>
-                                                <Progress value={analysisVideo.technical_score} className="h-2" />
-                                                <div className="flex justify-between items-center">
-                                                    <span className="text-sm font-medium">Confidence & Vibe</span>
-                                                    <Badge variant="outline" className="capitalize">{analysisVideo.vibe}</Badge>
-                                                </div>
-                                                <Progress value={analysisVideo.sentiment_score} className="h-2" />
-                                            </div>
-                                            <div className="space-y-3">
-                                                <p className="text-[10px] font-bold uppercase text-red-500">Red Flags:</p>
-                                                {analysisVideo.red_flags.length > 0 ? (
-                                                    <ul className="text-xs space-y-1">
-                                                        {analysisVideo.red_flags.map((f, i) => <li key={i} className="text-red-600">• {f}</li>)}
-                                                    </ul>
-                                                ) : <p className="text-xs italic text-muted-foreground">None detected</p>}
-                                                <p className="text-[10px] font-bold uppercase text-green-500 mt-4">Golden Nuggets:</p>
-                                                <ul className="text-xs space-y-1">
-                                                    {analysisVideo.golden_nuggets.map((n, i) => <li key={i} className="text-green-600">• {n}</li>)}
-                                                </ul>
-                                            </div>
-                                            <Button size="sm" variant="outline" className="md:col-span-2" onClick={() => setAnalysisVideo(null)}>New Analysis</Button>
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-
-                            {/* Role Architect */}
-                            <Card className="bg-gradient-to-br from-primary/10 to-transparent border-primary/30">
-                                <CardHeader>
-                                    <div className="flex items-center gap-2">
-                                        <Sparkles className="h-5 w-5 text-primary" />
-                                        <CardTitle className="text-lg">AI Role Architect</CardTitle>
-                                    </div>
-                                    <CardDescription>If they are not a fit for this role, what role SHOULD they be in?</CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    {!roleArchitectData ? (
-                                        <Button className="w-full bg-primary/20 hover:bg-primary/30 border-primary/30 text-primary" onClick={handleRoleArchitect} disabled={loadingRoleArchitect}>
-                                            {loadingRoleArchitect ? <RotateCcw className="h-4 w-4 animate-spin mr-2" /> : "Architect Alternative Path"}
-                                        </Button>
-                                    ) : (
-                                        <div className="space-y-4 animate-in fade-in zoom-in-95">
-                                            <div className="p-4 bg-background/80 rounded-xl border border-primary/20 shadow-xl">
-                                                <p className="text-xs font-bold text-primary uppercase mb-1">Proposed High-Impact Role:</p>
-                                                <p className="text-xl font-black">{roleArchitectData.proposed_role}</p>
-                                            </div>
-                                            <div className="grid md:grid-cols-2 gap-4 text-xs">
-                                                <div className="space-y-2">
-                                                    <p className="font-bold uppercase text-muted-foreground">Hidden Superpowers:</p>
-                                                    <div className="flex flex-wrap gap-1">
-                                                        {roleArchitectData.superpowers.map((s, i) => <Badge key={i} variant="outline" className="text-[9px]">{s}</Badge>)}
-                                                    </div>
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <p className="font-bold uppercase text-muted-foreground">90-Day Milestones:</p>
-                                                    <ul className="space-y-1">
-                                                        {roleArchitectData.milestones.map((m, i) => <li key={i} className="flex gap-2"><div className="w-1 h-1 rounded-full bg-primary mt-1.5" /> {m}</li>)}
-                                                    </ul>
-                                                </div>
-                                            </div>
-                                            <p className="text-xs italic text-muted-foreground border-t pt-4">Rationale: {roleArchitectData.pivot_rationale}</p>
-                                            <Button size="sm" variant="ghost" className="w-full" onClick={() => setRoleArchitectData(null)}>Reset Architecture</Button>
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-
-                            {/* Culture Radar & Onboarding */}
-                            <div className="grid md:grid-cols-2 gap-6">
-                                <Card className="border-primary/20">
-                                    <CardHeader>
-                                        <CardTitle className="text-lg flex items-center gap-2">
-                                            <Target className="h-5 w-5 text-primary" /> Culture Radar
-                                        </CardTitle>
-                                        <CardDescription>Alignment with priority company values.</CardDescription>
-                                    </CardHeader>
-                                    <CardContent className="h-[300px]">
-                                        {candidate.analysis?.culture_radar ? (
-                                            <ResponsiveContainer width="100%" height="100%">
-                                                <RadarChart cx="50%" cy="50%" outerRadius="80%" data={candidate.analysis.culture_radar}>
-                                                    <PolarGrid stroke="#333" />
-                                                    <PolarAngleAxis dataKey="value" tick={{ fill: "#888", fontSize: 10 }} />
-                                                    <PolarRadiusAxis angle={30} domain={[0, 100]} />
-                                                    <Radar
-                                                        name={candidate.name}
-                                                        dataKey="score"
-                                                        stroke="var(--primary)"
-                                                        fill="var(--primary)"
-                                                        fillOpacity={0.6}
-                                                    />
-                                                </RadarChart>
-                                            </ResponsiveContainer>
-                                        ) : (
-                                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground opacity-50">
-                                                <Target className="h-10 w-10 mb-2" />
-                                                <p className="text-xs italic">Re-run analysis to generate culture data</p>
-                                            </div>
-                                        )}
-                                    </CardContent>
-                                </Card>
-
-                                <Card className="border-primary/20 bg-primary/[0.01]">
-                                    <CardHeader>
-                                        <CardTitle className="text-lg flex items-center gap-2">
-                                            <Rocket className="h-5 w-5 text-primary" /> Success Roadmap
-                                        </CardTitle>
-                                        <CardDescription>AI-generated 30-60-90 day onboarding plan.</CardDescription>
-                                    </CardHeader>
-                                    <CardContent>
-                                        {!onboardingData ? (
-                                            <div className="space-y-4">
-                                                <p className="text-xs text-muted-foreground">Architect a personalized success path for {candidate.name} before extending the offer.</p>
-                                                <Button className="w-full" onClick={handleGenerateOnboarding} disabled={loadingOnboarding}>
-                                                    {loadingOnboarding ? <RotateCcw className="h-4 w-4 animate-spin mr-2" /> : <Rocket className="h-4 w-4 mr-2" />}
-                                                    Architect 30-60-90 Day Plan
-                                                </Button>
-                                            </div>
-                                        ) : (
-                                            <ScrollArea className="h-[350px] pr-4">
-                                                <div className="space-y-6">
-                                                    {onboardingData.phases.map((phase, idx) => (
-                                                        <div key={idx} className="space-y-2">
-                                                            <div className="flex items-center gap-2">
-                                                                <Badge className="rounded-sm">{phase.period}</Badge>
-                                                                <span className="text-xs font-bold uppercase">{phase.focus}</span>
-                                                            </div>
-                                                            <ul className="space-y-1 pl-4 border-l border-primary/20">
-                                                                {phase.milestones.map((m, i) => (
-                                                                    <li key={i} className="text-[11px] text-muted-foreground">• {m}</li>
-                                                                ))}
-                                                            </ul>
-                                                        </div>
-                                                    ))}
-                                                    <div className="pt-4 border-t border-primary/10">
-                                                        <p className="text-[10px] font-black uppercase text-primary mb-2">Friction Mitigation:</p>
-                                                        {onboardingData.friction_mitigation.map((f, i) => (
-                                                            <div key={i} className="mb-2 p-2 rounded bg-red-500/5 border border-red-500/10 text-[10px]">
-                                                                <span className="font-bold text-red-400">RISK: {f.risk}</span>
-                                                                <p className="mt-1">{f.solution}</p>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            </ScrollArea>
-                                        )}
-                                    </CardContent>
-                                </Card>
-                            </div>
-                        </div>
-                    </TabsContent>
                     <TabsContent value="predictive" className="flex-1 mt-0">
                         <div className="grid gap-6">
                             {/* Level 4: Career Arc & Team Dynamics */}
@@ -1703,9 +1417,8 @@ export default function CandidatePage() {
                         </div>
                     </TabsContent>
                 </Tabs>
-            </Card>
+            </div>
         </div>
-      </div>
 
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent className="max-w-md">

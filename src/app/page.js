@@ -3,8 +3,10 @@
 
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { ArrowRight, Bot, CheckCircle2, Zap, Sparkles, ShieldCheck, MessageSquare, BarChart3, Globe, Lock } from "lucide-react"
 import { motion } from "framer-motion"
+import { LiveLeaderboard } from "@/components/landing/LiveLeaderboard"
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -42,8 +44,8 @@ export default function LandingPage() {
         </motion.div>
         
         <nav className="ml-auto hidden md:flex gap-8 items-center mr-8">
-          {['Features', 'Intelligence', 'Security'].map((item) => (
-            <Link key={item} href={`#${item.toLowerCase()}`} className="text-sm font-medium text-slate-400 hover:text-white transition-colors relative group">
+          {['Leaderboard', 'Features', 'Arena'].map((item) => (
+            <Link key={item} href={item === 'Arena' ? '/battle' : `#${item.toLowerCase()}`} className="text-sm font-medium text-slate-400 hover:text-white transition-colors relative group">
               {item}
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all group-hover:w-full" />
             </Link>
@@ -78,18 +80,25 @@ export default function LandingPage() {
 
               <div className="space-y-6 max-w-4xl">
                 <motion.h1 
-                  initial={{ opacity: 0, filter: "blur(10px)" }}
-                  animate={{ opacity: 1, filter: "blur(0px)" }}
-                  transition={{ duration: 1 }}
-                  className="text-5xl md:text-8xl font-black tracking-tighter bg-gradient-to-b from-white to-white/40 bg-clip-text text-transparent leading-[1.1]"
+                  initial={{ opacity: 0, filter: "blur(20px)", y: 20 }}
+                  animate={{ opacity: 1, filter: "blur(0px)", y: 0 }}
+                  transition={{ duration: 1.2, ease: "easeOut" }}
+                  className="text-6xl md:text-9xl font-black tracking-tighter bg-gradient-to-b from-white via-white to-white/20 bg-clip-text text-transparent leading-[0.95] drop-shadow-[0_0_30px_rgba(255,255,255,0.1)]"
                 >
                   Hire Smarter with <br /> 
-                  <span className="text-primary italic">Precision AI</span>
+                  <span className="text-primary italic relative">
+                    Precision AI
+                    <motion.span 
+                      className="absolute -inset-x-4 -inset-y-2 bg-primary/10 blur-2xl rounded-full -z-10"
+                      animate={{ opacity: [0.3, 0.6, 0.3], scale: [1, 1.1, 1] }}
+                      transition={{ duration: 4, repeat: Infinity }}
+                    />
+                  </span>
                 </motion.h1>
                 <motion.p 
                   {...fadeInUp}
                   transition={{ delay: 0.2 }}
-                  className="mx-auto max-w-[800px] text-slate-400 md:text-xl lg:text-2xl font-light leading-relaxed"
+                  className="mx-auto max-w-[800px] text-slate-400 md:text-xl lg:text-2xl font-light leading-relaxed drop-shadow-lg"
                 >
                   Automate your talent pipeline with LLM-driven forensic analysis. <br className="hidden md:block" />
                   No bias, just raw engineering evaluation and cultural fit projection.
@@ -102,34 +111,58 @@ export default function LandingPage() {
                 className="flex flex-wrap items-center justify-center gap-6"
               >
                 <Link href="/login">
-                    <Button size="lg" className="h-14 px-10 text-lg rounded-2xl group shadow-2xl">
-                    Get Started <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
+                    <Button size="lg" className="h-16 px-12 text-xl rounded-2xl group shadow-[0_20px_50px_rgba(var(--primary-rgb),0.3)] hover:shadow-[0_25px_60px_rgba(var(--primary-rgb),0.4)] hover:-translate-y-1 transition-all duration-300">
+                      Get Started <ArrowRight className="ml-2 h-6 w-6 transition-transform group-hover:translate-x-1" />
                     </Button>
                 </Link>
-                <Link href="/dashboard">
-                    <Button variant="outline" size="lg" className="h-14 px-10 text-lg rounded-2xl border-white/10 hover:bg-white/5 backdrop-blur-sm">
-                    View Enterprise Demo
+                <Link href="/battle">
+                    <Button variant="outline" size="lg" className="h-16 px-12 text-xl rounded-2xl border-white/10 hover:bg-white/5 backdrop-blur-xl group hover:-translate-y-1 transition-all duration-300">
+                        <Zap className="mr-2 h-5 w-5 text-primary group-hover:fill-primary animate-pulse" /> Enter Battle Arena
                     </Button>
                 </Link>
               </motion.div>
 
-              {/* Cinematic Image Frame */}
+              {/* Cinematic Image Frame with 3D Depth */}
               <motion.div 
-                initial={{ opacity: 0, y: 100 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 1, delay: 0.6 }}
-                className="w-full max-w-6xl mt-16 p-2 rounded-[2.5rem] border border-white/10 bg-white/5 backdrop-blur-2xl shadow-[0_0_100px_rgba(0,0,0,0.5)] overflow-hidden"
+                initial={{ opacity: 0, y: 100, rotateX: 10 }}
+                animate={{ opacity: 1, y: 0, rotateX: 0 }}
+                transition={{ duration: 1.5, delay: 0.6, ease: "easeOut" }}
+                className="w-full max-w-6xl mt-24 p-3 rounded-[3rem] border border-white/10 bg-white/5 backdrop-blur-3xl shadow-[0_50px_100px_-20px_rgba(0,0,0,0.8),0_0_50px_rgba(var(--primary-rgb),0.1)] overflow-hidden hover:scale-[1.02] transition-transform duration-700 perspective-1000"
               >
-                <div className="rounded-[2rem] overflow-hidden border border-white/5">
-                  <img src="/hero_bg.png" alt="Futuristic AI Dashboard" className="w-full aspect-[21/9] object-cover hover:scale-105 transition-transform duration-1000" />
+                <div className="rounded-[2.5rem] overflow-hidden border border-white/10 relative group">
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60 z-10" />
+                  <img src="/hero_bg.png" alt="Futuristic AI Dashboard" className="w-full aspect-[21/9] object-cover hover:scale-105 transition-transform duration-3000 ease-out" />
+                  <div className="absolute bottom-10 left-10 z-20 space-y-2 opacity-0 group-hover:opacity-100 transition-opacity duration-500 translate-y-4 group-hover:translate-y-0 text-left">
+                    <Badge className="bg-primary/20 text-primary border-primary/30">Live Platform v2.0</Badge>
+                    <p className="text-white font-black text-2xl tracking-tighter italic">Forensic Intelligence Matrix</p>
+                  </div>
                 </div>
               </motion.div>
             </div>
           </div>
         </section>
 
+        {/* Global Talent Pulse Section */}
+        <section id="leaderboard" className="w-full py-24 md:py-32 relative">
+          <div className="container px-4 md:px-6 mx-auto">
+            <div className="text-center mb-20 space-y-4">
+              <Badge variant="outline" className="px-4 py-1 border-primary/30 text-primary bg-primary/10 rounded-full text-[10px] font-black uppercase tracking-widest">
+                Real-Time Competitive Index
+              </Badge>
+              <h2 className="text-3xl md:text-6xl font-black tracking-tight tracking-tighter">Global <span className="text-primary italic">Talent Pulse</span></h2>
+              <p className="text-slate-400 text-lg max-w-2xl mx-auto font-light leading-relaxed">
+                Aggregating live "Proof of Work" (GitHub) and "Problem Solving" (LeetCode) data to rank the world's most effective engineers.
+              </p>
+            </div>
+            
+            <div className="max-w-5xl mx-auto">
+                <LiveLeaderboard />
+            </div>
+          </div>
+        </section>
+
         {/* Features Grid */}
-        <section id="features" className="w-full py-24 md:py-32 relative">
+        <section id="features" className="w-full py-24 md:py-32 relative bg-white/[0.02]">
           <div className="container px-4 md:px-6 mx-auto">
             <div className="text-center mb-20 space-y-4">
               <h2 className="text-3xl md:text-5xl font-bold tracking-tight">Powerful Core Features</h2>

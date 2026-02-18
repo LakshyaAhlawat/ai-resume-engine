@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Input } from "@/components/ui/input"
-import { MoreHorizontal, Search, Filter, ArrowUpRight, Download, Swords, History, Check } from "lucide-react"
+import { MoreHorizontal, Search, Filter, ArrowUpRight, Download, Swords, History, Check, RotateCcw } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
@@ -94,84 +94,94 @@ export default function CandidatesPage() {
                 </div>
             </div>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle>All Candidates</CardTitle>
-                    <CardDescription>Manage and review your candidate pipeline.</CardDescription>
+            <Card className="border-primary/20 bg-card/40 backdrop-blur-xl overflow-hidden rounded-[2rem] shadow-2xl">
+                <CardHeader className="border-b border-primary/10 bg-primary/5">
+                    <CardTitle className="text-xl font-black tracking-tight">Main Pipeline</CardTitle>
+                    <CardDescription className="text-xs uppercase tracking-widest font-bold opacity-70">Reviewing {filteredCandidates.length} Active Candidates</CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-0">
                     {loading ? (
-                        <div className="p-8 text-center text-muted-foreground">Loading candidates...</div>
+                        <div className="p-20 text-center flex flex-col items-center gap-4">
+                            <RotateCcw className="h-10 w-10 text-primary animate-spin" />
+                            <p className="text-muted-foreground text-sm font-medium italic">Synchronizing Talent Matrix...</p>
+                        </div>
                     ) : filteredCandidates.length === 0 ? (
-                         <div className="p-8 text-center text-muted-foreground">No candidates found matching your search.</div>
+                         <div className="p-20 text-center text-muted-foreground font-medium italic">No candidates found matching your criteria.</div>
                     ) : (
+                    <div className="overflow-x-auto">
                     <Table>
-                    <TableHeader>
-                        <TableRow>
-                        <TableHead className="w-12"></TableHead>
-                        <TableHead>Candidate</TableHead>
-                        <TableHead>Role</TableHead>
-                        <TableHead>Match Analysis</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Applied</TableHead>
-                        <TableHead className="text-right">Action</TableHead>
+                    <TableHeader className="bg-muted/50">
+                        <TableRow className="border-primary/10 hover:bg-transparent">
+                        <TableHead className="w-12 pl-6"></TableHead>
+                        <TableHead className="text-[10px] font-black uppercase tracking-widest">Candidate</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase tracking-widest">Target Role</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase tracking-widest">Match Analysis</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase tracking-widest text-center">Status</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase tracking-widest">Pipeline Stage</TableHead>
+                        <TableHead className="text-right pr-6"></TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {filteredCandidates.map((candidate) => (
-                        <TableRow key={candidate.id}>
-                            <TableCell>
+                        <TableRow key={candidate.id} className="border-primary/5 hover:bg-primary/5 transition-colors group">
+                            <TableCell className="pl-6">
                                 <Checkbox 
                                     checked={selectedIds.includes(candidate.id)} 
                                     onCheckedChange={() => toggleSelection(candidate.id)}
                                     disabled={selectedIds.length >= 4 && !selectedIds.includes(candidate.id)}
+                                    className="border-primary/20 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
                                 />
                             </TableCell>
                             <TableCell>
-                                <div className="flex flex-col">
-                                    <span className="font-medium">{candidate.name || "Unknown"}</span>
-                                    <span className="text-xs text-muted-foreground">{candidate.email || "No email"}</span>
-                                </div>
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">{candidate.role || "General Application"}</TableCell>
-                            <TableCell>
-                            <div className="flex items-center gap-3">
-                                <div className="flex flex-col gap-1 min-w-[100px]">
-                                    <div className="flex justify-between text-xs">
-                                        <span>Match</span>
-                                        <span className="font-bold">{candidate.score || 0}%</span>
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center font-black text-primary text-sm border border-primary/10 shadow-sm group-hover:scale-110 transition-transform">
+                                        {(candidate.name || "C").charAt(0)}
                                     </div>
-                                    <Progress 
-                                        value={candidate.score || 0} 
-                                        className="h-2 w-full"
-                                        indicatorColor={
-                                            (candidate.score || 0) > 80 ? "bg-green-500" : 
-                                            (candidate.score || 0) > 50 ? "bg-yellow-500" : "bg-red-500"
-                                        } 
-                                    />
+                                    <div className="flex flex-col">
+                                        <span className="font-bold tracking-tight text-sm">{candidate.name || "Unknown"}</span>
+                                        <span className="text-[10px] text-muted-foreground/80 font-medium">{(candidate.email || "No email").toLowerCase()}</span>
+                                    </div>
                                 </div>
-                            </div>
                             </TableCell>
+                            <TableCell className="text-muted-foreground font-bold text-[10px] uppercase tracking-tighter">{candidate.role || "General Application"}</TableCell>
                             <TableCell>
-                            <Badge variant={
-                                candidate.status === "Shortlisted" ? "default" : 
-                                candidate.status === "Rejected" ? "destructive" : "secondary"
-                            }>
-                                {candidate.status || "Pending"}
-                            </Badge>
+                                <div className="flex flex-col gap-1 min-w-[120px]">
+                                    <div className="flex justify-between items-end mb-1">
+                                        <span className="text-[9px] font-black uppercase tracking-widest text-primary">Score</span>
+                                        <span className="text-sm font-black text-foreground">{candidate.score || 0}%</span>
+                                    </div>
+                                    <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden border border-primary/5">
+                                        <div 
+                                            className={`h-full transition-all duration-1000 ${
+                                                (candidate.score || 0) > 80 ? "bg-gradient-to-r from-emerald-500 to-emerald-400" : 
+                                                (candidate.score || 0) > 50 ? "bg-gradient-to-r from-yellow-500 to-yellow-400" : "bg-gradient-to-r from-rose-500 to-rose-400"
+                                            }`}
+                                            style={{ width: `${candidate.score || 0}%` }}
+                                        />
+                                    </div>
+                                </div>
                             </TableCell>
-                            <TableCell className="text-muted-foreground">{candidate.applied || "Recently"}</TableCell>
-                            <TableCell className="text-right">
-                            <Button variant="ghost" size="icon" asChild>
-                                <Link href={`/candidates/${candidate.id}`}>
-                                    <MoreHorizontal className="h-4 w-4" />
-                                </Link>
-                            </Button>
+                            <TableCell className="text-center">
+                                <Badge variant="outline" className={`rounded-full px-3 py-0.5 text-[9px] font-black uppercase tracking-widest border-2 ${
+                                    candidate.status === "Shortlisted" ? "border-emerald-500/20 text-emerald-600 bg-emerald-500/5" : 
+                                    candidate.status === "Rejected" ? "border-rose-500/20 text-rose-600 bg-rose-500/5" : "border-primary/20 text-primary bg-primary/5"
+                                }`}>
+                                    {candidate.status || "Pending"}
+                                </Badge>
+                            </TableCell>
+                            <TableCell className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest">{candidate.applied || "Initial Screening"}</TableCell>
+                            <TableCell className="text-right pr-6">
+                                <Button variant="ghost" size="sm" asChild className="rounded-xl hover:bg-primary/10">
+                                    <Link href={`/candidates/${candidate.id}`} className="flex items-center gap-1.5 font-bold text-xs">
+                                        Review <ArrowUpRight className="h-3 w-3" />
+                                    </Link>
+                                </Button>
                             </TableCell>
                         </TableRow>
                         ))}
                     </TableBody>
                     </Table>
+                    </div>
                     )}
                 </CardContent>
             </Card>

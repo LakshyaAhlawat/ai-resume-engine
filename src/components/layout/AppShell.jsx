@@ -30,9 +30,9 @@ export function AppShell({ children, title }) {
   if (!user) return null
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen premium-bg">
       <Sidebar />
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col relative z-10">
         <Header title={title} />
         <main className="flex-1 p-6 space-y-6 overflow-auto">
           {children}

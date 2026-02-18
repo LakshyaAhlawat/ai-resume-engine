@@ -87,7 +87,8 @@ export default function UploadPage() {
         // 3. Upload to Supabase Storage
         const { supabase } = await import("@/lib/supabase")
         const file = files[0].originalFile
-        const fileName = `${Math.random().toString(36).substr(2, 9)}-${file.name}`
+        const sanitizedName = file.name.replace(/[^a-zA-Z0-9.]/g, '_')
+        const fileName = `${Math.random().toString(36).substr(2, 9)}-${sanitizedName}`
         
         const { data: uploadData, error: uploadError } = await supabase.storage
             .from('resumes')
@@ -108,11 +109,11 @@ export default function UploadPage() {
             email: parseData.parsed_data.email || "N/A",
             role: roleTitle || "Full Stack Engineer",
             job_description: jobDescription || "No job description provided",
-            score: parseFloat(scoreData.score) || 0,
+            score: parseInt(String(scoreData.score).replace(/[^0-9]/g, '')) || 0,
             status: "Review",
             analysis: {
                 ...scoreData.analysis,
-                sub_scores: scoreData.sub_scores || { technical: 0, experience: 0, education: 0 }
+                sub_scores: scoreData.analysis?.sub_scores || { technical: 0, experience: 0, education: 0, soft_skills: 0, culture: 0 }
             },
             extracted_data: parseData.parsed_data,
             resume_url: publicUrl,
