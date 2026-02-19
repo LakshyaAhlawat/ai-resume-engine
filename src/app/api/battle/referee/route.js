@@ -13,41 +13,71 @@ export async function POST(req) {
             messages: [
                 {
                     role: "system",
-                    content: "You are an Elite AI Referee with LeetCode-level strictness. You evaluate competitive programming code based on strict logic, time/space complexity, and standard DSA patterns. YOU MUST SIMULATE 100-200 DIVERSE TEST CASES INTERNALLY (including edge cases, empty inputs, large constraints, negative values, and performance-heavy scenarios). IF THE CODE VIOLATES THE GIVEN CONSTRAINTS OR COMPLEXITY REQUIREMENTS, YOU MUST MARK IT AS isCorrect: false, even if it passes some tests."
+                    content: `You are an Ultra-Strict AI Referee for competitive programming. You must:
+1. GENERATE EXACTLY 300 UNIQUE TEST CASES covering:
+   - Basic examples from the problem statement
+   - Edge cases (empty input, single element, all same values, max/min constraints)
+   - Boundary cases (N=0, N=1, N=max)
+   - Large random inputs at constraint limits
+   - Negative values, zeros, duplicates
+   - Sorted/reverse-sorted/random order inputs
+   - Special patterns (alternating, palindromic, fibonacci-like)
+2. MENTALLY EXECUTE the submitted code against ALL 300 test cases
+3. If ANY test case fails, report the FIRST failing case with:
+   - The exact input
+   - The expected correct output
+   - The actual output the code would produce
+   - The test case number (1-indexed)
+4. Check time complexity against constraints. If code is O(N²) but needs O(N log N), mark as TLE.
+5. Check space complexity against constraints.
+6. ENFORCE: Every test case must be unique. No duplicates allowed.`
                 },
                 {
                     role: "user",
                     content: `
-                        Evaluate the following code in ${language.toUpperCase()} based on the provided DSA question.
-                        
-                        QUESTION:
-                        Title: ${question.title || "Unknown Challenge"}
-                        Description: ${question.description || "No description provided"}
-                        
-                        CODE:
-                        ${code}
-                        
-                        ${isTestMode ? "MODE: TEST (Logic validation only)" : `MODE: SUBMIT (Forensic analysis. Time taken: ${timeTaken}s)`}
-                        
-                        CRITICAL: Perform a strict dry-run of the code against the QUESTION constraints (e.g. N = 10^5). If the code is O(N^2) but the constraint requires O(N log N), handle it as a failure.
-                        
-                        Return ONLY a JSON object with this exact structure:
-                        {
-                            "score": number (0-100),
-                            "feedback": "Sharp technical critique focused on complexity/constraints",
-                            "isCorrect": boolean,
-                            "passCount": number,
-                            "totalCount": number,
-                            "errorType": "Optional: 'TLE', 'MLE', 'WA', 'Internal Error', or null",
-                            "failedTests": [
-                                { "input": "...", "expected": "...", "actual": "...", "reason": "e.g. TLE / Wrong Answer" }
-                            ],
-                            "timeComplexity": "e.g. O(N Log N)",
-                            "spaceComplexity": "e.g. O(N)",
-                            "idealSolution": "Complete, working C++ code for this specific problem. MUST BE C++ ONLY."
-                        }
-                        
-                        If in TEST mode, set complexity and rankGain to "N/A" and 0 respectively.
+Evaluate this ${language.toUpperCase()} code against 300 unique test cases.
+
+QUESTION:
+Title: ${question.title || "Unknown"}
+Description: ${question.description || "No description"}
+Constraints: ${JSON.stringify(question.constraints || [])}
+Examples: ${JSON.stringify(question.examples || [])}
+
+CODE:
+\`\`\`${language}
+${code}
+\`\`\`
+
+${isTestMode ? "MODE: TEST (Quick validation against all 300 cases)" : `MODE: SUBMIT (Full forensic analysis. Time taken: ${timeTaken}s)`}
+
+CRITICAL INSTRUCTIONS:
+- Generate 300 UNIQUE test cases internally (edge cases, random, boundary, stress tests)
+- Dry-run the code MENTALLY against each test case
+- If a test fails, STOP and report it as the first failure
+- Report total passed vs total (e.g., "passed 187/300")
+
+Return ONLY valid JSON:
+{
+    "score": number (0-100, based on % of tests passed and code quality),
+    "feedback": "Technical critique: what went wrong or why it's correct",
+    "isCorrect": boolean (true ONLY if ALL 300 pass),
+    "passCount": number (how many of 300 passed),
+    "totalCount": 300,
+    "errorType": "TLE" | "MLE" | "WA" | "RE" | null,
+    "failedTestNumber": number | null (1-indexed, which test case failed first),
+    "failedTests": [
+        {
+            "testNumber": number,
+            "input": "exact input that failed",
+            "expected": "correct expected output",
+            "actual": "what the code would return",
+            "reason": "WA / TLE / RE / MLE"
+        }
+    ] (include up to 3 failing tests, starting from the first failure),
+    "timeComplexity": "O(...)",
+    "spaceComplexity": "O(...)",
+    "idealSolution": "Complete working C++ solution code"
+}
                     `
                 }
             ],
@@ -56,16 +86,24 @@ export async function POST(req) {
         });
 
         const evalResult = JSON.parse(completion.choices[0]?.message?.content || "{}");
+        
+        // Ensure totalCount is always 300
+        evalResult.totalCount = 300;
+        if (evalResult.passCount === undefined) evalResult.passCount = evalResult.isCorrect ? 300 : 0;
+        
         return NextResponse.json(evalResult);
     } catch (error) {
-        console.error("Groq Referee Error Details:", error);
+        console.error("Groq Referee Error:", error);
         return NextResponse.json({
             score: 0,
-            feedback: `Astra Referee initialization error: ${error.message || "Engine failure"}`,
+            feedback: `Referee engine failure: ${error.message || "Unknown error"}`,
             isCorrect: false,
+            passCount: 0,
+            totalCount: 300,
+            errorType: "Internal Error",
+            failedTests: [],
             timeComplexity: "Unknown",
             spaceComplexity: "Unknown",
-            rankGain: 0
         });
     }
 }

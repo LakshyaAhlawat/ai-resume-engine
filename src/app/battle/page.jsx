@@ -49,6 +49,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { CodeEditor } from "@/components/ui/code-editor"
 
 const LANGUAGES = [
     { id: 'cpp', name: 'C++', default: '#include <iostream>\n\nint main() {\n    return 0;\n}' },
@@ -59,7 +60,7 @@ const LANGUAGES = [
 
 export default function BattleArenaPage() {
     const { user: authUser } = useAuth()
-    const [gameState, setGameState] = useState('lobby') // 'lobby', 'room-joining', 'active', 'finished'
+    const [gameState, setGameState] = useState('lobby') // 'lobby', 'create', 'join', 'active', 'finished'
     const [roomConfig, setRoomConfig] = useState({ id: '', team: 'Shadow', source: 'ai', questions: [{ difficulty: 'Medium' }] })
     const [roomState, setRoomState] = useState(null)
     const [language, setLanguage] = useState(LANGUAGES[2]) // Default JS
@@ -75,28 +76,31 @@ export default function BattleArenaPage() {
     const [submittedQuestions, setSubmittedQuestions] = useState([]) // Array of solved question IDs
     const [showExitDialog, setShowExitDialog] = useState(false)
     const heartbeatRef = useRef(null)
+    const eventSourceRef = useRef(null)
 
+    // SSE Live Stream — replaces polling for real-time updates
     useEffect(() => {
-        let interval;
-        if (gameState === 'active') {
-            interval = setInterval(() => setTimer(prev => prev + 1), 1000);
-            
-            const pollInterval = setInterval(async () => {
+        if (gameState === 'active' && roomConfig.id) {
+            const interval = setInterval(() => setTimer(prev => prev + 1), 1000);
+
+            // Connect to SSE stream
+            const es = new EventSource(`/api/battle/rooms/stream?roomId=${roomConfig.id}`);
+            es.onmessage = (event) => {
                 try {
-                    const res = await fetch(`/api/battle/rooms?roomId=${roomConfig.id}`)
-                    const data = await res.json()
-                    if (data.success) {
-                        setRoomState(data.room)
-                    }
-                } catch (err) {
-                    console.error("Poll Error:", err)
-                }
-            }, 3000)
+                    const room = JSON.parse(event.data);
+                    setRoomState(room);
+                } catch (e) {}
+            };
+            es.onerror = () => {
+                // Auto-reconnects per SSE spec
+            };
+            eventSourceRef.current = es;
 
             return () => {
                 clearInterval(interval);
-                clearInterval(pollInterval);
-            }
+                es.close();
+                eventSourceRef.current = null;
+            };
         }
     }, [gameState, roomConfig.id]);
 
@@ -115,7 +119,7 @@ export default function BattleArenaPage() {
                         progress 
                     })
                 });
-            }, 5000);
+            }, 10000);
             return () => clearTimeout(timeout);
         }
     }, [codeMap, currentQuestionIndex, questions, gameState, roomConfig.id, authUser?.id]);
@@ -130,9 +134,14 @@ export default function BattleArenaPage() {
         setRoomConfig(prev => ({ ...prev, id: newId }));
     }
 
-    const handleCreateRoom = () => {
+    const handleCreateArena = () => {
         generateRoomId();
-        setGameState('room-joining');
+        setGameState('create');
+    }
+
+    const handleJoinArena = () => {
+        setRoomConfig(prev => ({ ...prev, id: '' }));
+        setGameState('join');
     }
 
     const handleJoinBattle = async () => {
@@ -168,25 +177,29 @@ export default function BattleArenaPage() {
             const room = syncData.room;
             let finalQuestions = room.questions || [];
 
-            // 2. Generate if room is new/empty
+            // 2. Generate if room is new/empty — with uniqueness enforcement
             if (finalQuestions.length === 0) {
                 const generated = [];
-                for (let i = 0; i < (room.config.questions?.length || 1); i++) {
-                    const qConfig = room.config.questions?.[i] || { difficulty: 'Medium' };
+                const usedTitles = [];
+                const qConfigs = room.config.questions || [{ difficulty: 'Medium' }];
+                for (let i = 0; i < qConfigs.length; i++) {
+                    const qConfig = qConfigs[i];
                     const genRes = await fetch('/api/battle/generate', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ 
                             source: room.config.source,
-                            difficulty: qConfig.difficulty 
+                            difficulty: qConfig.difficulty,
+                            excludeTitles: usedTitles
                         })
                     })
                     const q = await genRes.json();
                     generated.push(q);
+                    usedTitles.push(q.title); // Track for uniqueness
                 }
                 finalQuestions = generated;
                 
-                // SAVE questions to room persistence
+                // SAVE questions to room persistence (also triggers SSE broadcast)
                 await fetch('/api/battle/rooms', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
@@ -310,55 +323,149 @@ export default function BattleArenaPage() {
             <TooltipProvider>
                 <div className="min-h-screen bg-[#1a1a1a] text-[#eff1f6]">
                     {gameState === 'lobby' && (
-                        <div className="max-w-4xl mx-auto h-[70vh] flex flex-col items-center justify-center relative">
-                            <div className="absolute inset-0 bg-primary/5 blur-[120px] rounded-full animate-pulse pointer-events-none" />
+                        <div className="max-w-5xl mx-auto min-h-[85vh] flex flex-col items-center justify-center relative px-6" style={{ perspective: '1200px' }}>
+                            {/* Layered ambient background */}
+                            <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                                <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-primary/8 blur-[160px] rounded-full animate-pulse" />
+                                <div className="absolute bottom-1/3 right-1/4 w-[400px] h-[400px] bg-rose-500/6 blur-[140px] rounded-full animate-pulse" style={{ animationDelay: '1s' }} />
+                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-violet-500/4 blur-[200px] rounded-full" />
+                            </div>
+
                             <motion.div 
-                                initial={{ opacity: 0, scale: 0.9 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                className="text-center space-y-12 relative z-10"
+                                initial={{ opacity: 0, y: 30, rotateX: 8 }}
+                                animate={{ opacity: 1, y: 0, rotateX: 0 }}
+                                transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+                                className="text-center space-y-14 relative z-10 w-full"
                             >
-                                <div className="space-y-4">
-                                    <div className="mx-auto w-24 h-24 rounded-[2rem] bg-primary/10 border-2 border-primary/20 flex items-center justify-center shadow-2xl shadow-primary/20">
-                                        <Swords className="h-12 w-12 text-primary" />
+                                {/* Floating 3D Icon */}
+                                <div className="space-y-6">
+                                    <motion.div 
+                                        animate={{ y: [0, -8, 0] }}
+                                        transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+                                        className="mx-auto w-28 h-28 rounded-[2.5rem] flex items-center justify-center relative"
+                                        style={{ 
+                                            background: 'linear-gradient(135deg, rgba(var(--primary-rgb, 124,58,237), 0.15), rgba(var(--primary-rgb, 124,58,237), 0.05))',
+                                            border: '2px solid rgba(var(--primary-rgb, 124,58,237), 0.25)',
+                                            boxShadow: '0 25px 60px -12px rgba(var(--primary-rgb, 124,58,237), 0.35), inset 0 1px 1px rgba(255,255,255,0.05)',
+                                            transform: 'perspective(600px) rotateY(-5deg)'
+                                        }}
+                                    >
+                                        <Swords className="h-14 w-14 text-primary drop-shadow-lg" />
+                                        {/* Glowing ring */}
+                                        <div className="absolute inset-0 rounded-[2.5rem] border border-primary/10 animate-ping opacity-20" />
+                                    </motion.div>
+
+                                    <div>
+                                        <h1 className="text-7xl md:text-9xl font-black tracking-[-0.06em] uppercase leading-[0.85]">
+                                            <span className="bg-gradient-to-b from-white via-white to-white/40 bg-clip-text text-transparent">ASTRA</span>
+                                            <br/>
+                                            <span className="bg-gradient-to-r from-primary via-primary to-violet-400 bg-clip-text text-transparent italic">ARENA</span>
+                                        </h1>
+                                        <p className="text-slate-500 text-base font-medium max-w-md mx-auto mt-4 tracking-wide">
+                                            Establish your dominance in the global algorithmic matrix.
+                                        </p>
                                     </div>
-                                    <h1 className="text-5xl md:text-7xl font-black tracking-tighter uppercase text-white">Elite <span className="text-primary italic">Arena</span></h1>
-                                    <p className="text-muted-foreground text-lg font-light max-w-lg mx-auto leading-relaxed">
-                                        Establish your dominance in the global algorithmic matrix.
-                                    </p>
                                 </div>
-                                <Button onClick={handleCreateRoom} size="lg" className="h-20 px-12 rounded-[2rem] text-xl font-black gap-3 shadow-2xl shadow-primary/30">
-                                    <Zap className="h-6 w-6 fill-current" /> ENTER LOBBY
-                                </Button>
+
+                                {/* 3D Tilted Cards */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-2xl mx-auto w-full">
+                                    <motion.div
+                                        whileHover={{ rotateY: -3, rotateX: 3, scale: 1.02, z: 20 }}
+                                        transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                                        style={{ transformStyle: 'preserve-3d' }}
+                                    >
+                                        <Button 
+                                            onClick={handleCreateArena} 
+                                            className="group relative h-56 w-full rounded-[2.5rem] bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/[0.08] hover:border-primary/40 transition-all duration-500 overflow-hidden flex flex-col items-center justify-center gap-5 cursor-pointer"
+                                            style={{ boxShadow: '0 8px 40px -8px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)' }}
+                                        >
+                                            {/* Animated gradient border top */}
+                                            <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent opacity-60" />
+                                            {/* Hover glow */}
+                                            <div className="absolute inset-0 bg-primary/0 group-hover:bg-primary/5 transition-all duration-500 rounded-[2.5rem]" />
+                                            
+                                            <div className="relative p-5 rounded-[1.2rem] bg-primary/15 text-primary group-hover:scale-110 group-hover:bg-primary/25 transition-all duration-300" style={{ boxShadow: '0 0 30px rgba(var(--primary-rgb, 124,58,237), 0.2)' }}>
+                                                <Zap className="h-9 w-9 fill-current" />
+                                            </div>
+                                            <div className="text-center relative">
+                                                <span className="block text-2xl font-black text-white uppercase italic tracking-tight">Host Mission</span>
+                                                <span className="block text-[9px] font-bold text-slate-500 uppercase tracking-[0.3em] mt-1.5">Configure & Deploy</span>
+                                            </div>
+                                        </Button>
+                                    </motion.div>
+
+                                    <motion.div
+                                        whileHover={{ rotateY: 3, rotateX: 3, scale: 1.02, z: 20 }}
+                                        transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                                        style={{ transformStyle: 'preserve-3d' }}
+                                    >
+                                        <Button 
+                                            onClick={handleJoinArena} 
+                                            className="group relative h-56 w-full rounded-[2.5rem] bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/[0.08] hover:border-rose-500/40 transition-all duration-500 overflow-hidden flex flex-col items-center justify-center gap-5 cursor-pointer"
+                                            style={{ boxShadow: '0 8px 40px -8px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)' }}
+                                        >
+                                            {/* Animated gradient border top */}
+                                            <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-rose-500 to-transparent opacity-60" />
+                                            {/* Hover glow */}
+                                            <div className="absolute inset-0 bg-rose-500/0 group-hover:bg-rose-500/5 transition-all duration-500 rounded-[2.5rem]" />
+
+                                            <div className="relative p-5 rounded-[1.2rem] bg-rose-500/15 text-rose-500 group-hover:scale-110 group-hover:bg-rose-500/25 transition-all duration-300" style={{ boxShadow: '0 0 30px rgba(244,63,94,0.15)' }}>
+                                                <Globe className="h-9 w-9" />
+                                            </div>
+                                            <div className="text-center relative">
+                                                <span className="block text-2xl font-black text-white uppercase italic tracking-tight">Infiltrate</span>
+                                                <span className="block text-[9px] font-bold text-slate-500 uppercase tracking-[0.3em] mt-1.5">Join Existing Room</span>
+                                            </div>
+                                        </Button>
+                                    </motion.div>
+                                </div>
+
+                                {/* Subtle bottom stats */}
+                                <div className="flex items-center justify-center gap-8 text-[9px] font-bold uppercase tracking-[0.3em] text-slate-600">
+                                    <span>SSE Live</span>
+                                    <span className="w-1 h-1 rounded-full bg-primary animate-pulse" />
+                                    <span>Multi-Platform</span>
+                                    <span className="w-1 h-1 rounded-full bg-rose-500 animate-pulse" />
+                                    <span>AI Referee</span>
+                                </div>
                             </motion.div>
                         </div>
                     )}
 
-                    {gameState === 'room-joining' && (
-                        <div className="max-w-xl mx-auto py-20 space-y-10">
-                            <div className="space-y-2 text-center">
-                                <Badge variant="outline" className="border-primary/30 text-primary uppercase font-black tracking-widest px-4 py-1">Room Synchronization</Badge>
-                                <h2 className="text-4xl font-black tracking-tighter text-white">PREPARE FOR <span className="text-primary italic">WARFARE</span></h2>
+                    {gameState === 'create' && (
+                        <div className="max-w-xl mx-auto py-20 space-y-10 px-6">
+                            <div className="flex items-center gap-4">
+                                <Button variant="ghost" onClick={() => setGameState('lobby')} className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 text-slate-400 hover:text-white">
+                                    <ChevronRight className="h-5 w-5 rotate-180" />
+                                </Button>
+                                <div className="space-y-0.5">
+                                    <Badge className="bg-primary/20 text-primary border-none text-[8px] font-black uppercase tracking-[0.2em]">HOSTING PROTOCOL</Badge>
+                                    <h2 className="text-2xl font-black tracking-tight text-white uppercase italic">Configure Arena</h2>
+                                </div>
                             </div>
-                            <Card className="border-white/10 bg-white/5 backdrop-blur-2xl rounded-[3rem] p-10 space-y-8 shadow-2xl">
-                                <div className="space-y-6">
+                            <Card className="border-white/10 bg-white/5 backdrop-blur-2xl rounded-[3rem] p-10 space-y-8 shadow-2xl relative overflow-hidden">
+                                <div className="absolute top-0 right-0 p-8 opacity-5">
+                                    <Settings className="h-32 w-32 animate-[spin_20s_linear_infinite]" />
+                                </div>
+                                <div className="space-y-6 relative z-10">
                                     <div className="grid gap-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-primary px-1">Room ID</label>
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-primary px-1">Arena Signature</label>
                                         <div className="flex gap-2">
                                             <div className="relative flex-1">
-                                                <Globe className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                                <Globe className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-primary" />
                                                 <Input 
                                                     value={roomConfig.id}
-                                                    onChange={(e) => setRoomConfig(prev => ({ ...prev, id: e.target.value }))}
-                                                    placeholder="ALPHA-SYNC-9" 
-                                                    className="h-14 pl-12 bg-black/40 border-white/10 rounded-2xl"
+                                                    readOnly
+                                                    className="h-14 pl-12 bg-black/40 border-white/10 rounded-2xl font-black tracking-wider text-white"
                                                 />
                                             </div>
                                             <Button variant="outline" onClick={generateRoomId} className="h-14 w-14 rounded-2xl border-white/10 bg-white/5"><RotateCcw className="h-5 w-5" /></Button>
                                         </div>
                                     </div>
+
                                     <div className="space-y-4">
                                         <div className="flex items-center justify-between px-1">
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-primary">Battle Deck</label>
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-primary">Mission Deck</label>
                                             <Button 
                                                 variant="ghost" 
                                                 size="sm" 
@@ -366,75 +473,148 @@ export default function BattleArenaPage() {
                                                 className="h-6 text-[9px] font-black uppercase tracking-wider text-primary hover:text-white hover:bg-primary/20 rounded-full"
                                                 disabled={roomConfig.questions.length >= 5}
                                             >
-                                                + Add Challenge
+                                                + Add Objective
                                             </Button>
                                         </div>
-                                        <div className="space-y-3">
-                                            {roomConfig.questions.map((q, idx) => (
-                                                <div key={idx} className="flex gap-3 items-center group">
-                                                    <div className="h-14 w-14 rounded-2xl bg-black/40 border border-white/10 flex items-center justify-center font-black text-xs text-slate-500 group-hover:text-primary transition-colors">
-                                                        Q{idx + 1}
+                                        <ScrollArea className="max-h-[220px] pr-4">
+                                            <div className="space-y-3">
+                                                {roomConfig.questions.map((q, idx) => (
+                                                    <div key={idx} className="flex gap-3 items-center group">
+                                                        <div className="h-14 w-14 rounded-2xl bg-black/40 border border-white/10 flex items-center justify-center font-black text-xs text-slate-500 group-hover:text-primary transition-colors shrink-0">
+                                                            OBJ{idx + 1}
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <Select 
+                                                                value={q.difficulty} 
+                                                                onValueChange={(v) => {
+                                                                    const newQs = [...roomConfig.questions];
+                                                                    newQs[idx].difficulty = v;
+                                                                    setRoomConfig(prev => ({ ...prev, questions: newQs }));
+                                                                }}
+                                                            >
+                                                                <SelectTrigger className="h-14 bg-black/40 border-white/10 rounded-2xl text-white"><SelectValue /></SelectTrigger>
+                                                                <SelectContent className="bg-[#1a1a1a] border-white/10 text-white">
+                                                                    <SelectItem value="Easy">Novice (Easy)</SelectItem>
+                                                                    <SelectItem value="Medium">Tactical (Medium)</SelectItem>
+                                                                    <SelectItem value="Hard">Elite (Hard)</SelectItem>
+                                                                </SelectContent>
+                                                            </Select>
+                                                        </div>
+                                                        {roomConfig.questions.length > 1 && (
+                                                            <Button 
+                                                                variant="ghost" 
+                                                                size="icon" 
+                                                                onClick={() => {
+                                                                    const newQs = [...roomConfig.questions];
+                                                                    newQs.splice(idx, 1);
+                                                                    setRoomConfig(prev => ({ ...prev, questions: newQs }));
+                                                                }}
+                                                                className="h-14 w-14 rounded-2xl border border-white/5 hover:bg-rose-500/10 hover:text-rose-500 text-slate-500 shrink-0"
+                                                            >
+                                                                <RotateCcw className="h-4 w-4 rotate-45" />
+                                                            </Button>
+                                                        )}
                                                     </div>
-                                                    <div className="flex-1">
-                                                        <Select 
-                                                            value={q.difficulty} 
-                                                            onValueChange={(v) => {
-                                                                const newQs = [...roomConfig.questions];
-                                                                newQs[idx].difficulty = v;
-                                                                setRoomConfig(prev => ({ ...prev, questions: newQs }));
-                                                            }}
-                                                        >
-                                                            <SelectTrigger className="h-14 bg-black/40 border-white/10 rounded-2xl text-white"><SelectValue /></SelectTrigger>
-                                                            <SelectContent className="bg-slate-900 border-white/10">
-                                                                <SelectItem value="Easy">Easy</SelectItem>
-                                                                <SelectItem value="Medium">Medium</SelectItem>
-                                                                <SelectItem value="Hard">Hard</SelectItem>
-                                                            </SelectContent>
-                                                        </Select>
-                                                    </div>
-                                                    {roomConfig.questions.length > 1 && (
-                                                        <Button 
-                                                            variant="ghost" 
-                                                            size="icon" 
-                                                            onClick={() => {
-                                                                const newQs = [...roomConfig.questions];
-                                                                newQs.splice(idx, 1);
-                                                                setRoomConfig(prev => ({ ...prev, questions: newQs }));
-                                                            }}
-                                                            className="h-14 w-14 rounded-2xl border border-white/5 hover:bg-rose-500/10 hover:text-rose-500 text-slate-500"
-                                                        >
-                                                            <RotateCcw className="h-4 w-4 rotate-45" />
-                                                        </Button>
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
+                                                ))}
+                                            </div>
+                                        </ScrollArea>
                                     </div>
 
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-2">
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-primary px-1">Question Source</label>
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-primary px-1">Source</label>
                                             <Select value={roomConfig.source} onValueChange={(v) => setRoomConfig(prev => ({ ...prev, source: v }))}>
                                                 <SelectTrigger className="h-14 bg-black/40 border-white/10 rounded-2xl text-white"><SelectValue /></SelectTrigger>
-                                                <SelectContent className="bg-slate-900 border-white/10">
-                                                    <SelectItem value="ai">Astra AI Native</SelectItem>
-                                                    <SelectItem value="leetcode">LeetCode Verified</SelectItem>
+                                                <SelectContent className="bg-[#1a1a1a] border-white/10 text-white">
+                                                    <SelectItem value="ai">Astra AI</SelectItem>
+                                                    <SelectItem value="leetcode">LeetCode</SelectItem>
+                                                    <SelectItem value="gfg">GeeksForGeeks</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                         </div>
                                         <div className="space-y-2">
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-primary px-1">Team Selection</label>
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-primary px-1">Assignment</label>
                                             <div className="flex bg-black/40 rounded-2xl p-1 border border-white/10 h-14">
-                                                <button onClick={() => setRoomConfig(prev => ({ ...prev, team: 'Shadow' }))} className={`flex-1 rounded-xl text-[10px] font-black uppercase transition-all ${roomConfig.team === 'Shadow' ? 'bg-primary text-white shadow-lg' : 'text-slate-500'}`}>Shadow</button>
-                                                <button onClick={() => setRoomConfig(prev => ({ ...prev, team: 'Crimson' }))} className={`flex-1 rounded-xl text-[10px] font-black uppercase transition-all ${roomConfig.team === 'Crimson' ? 'bg-red-500 text-white shadow-lg' : 'text-slate-500'}`}>Crimson</button>
+                                                <button onClick={() => setRoomConfig(prev => ({ ...prev, team: 'Shadow' }))} className={`flex-1 rounded-xl text-[10px] font-black uppercase transition-all ${roomConfig.team === 'Shadow' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-slate-500'}`}>Shadow</button>
+                                                <button onClick={() => setRoomConfig(prev => ({ ...prev, team: 'Crimson' }))} className={`flex-1 rounded-xl text-[10px] font-black uppercase transition-all ${roomConfig.team === 'Crimson' ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20' : 'text-slate-500'}`}>Crimson</button>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
-                                <Button onClick={handleJoinBattle} disabled={loading} className="w-full h-16 rounded-2xl text-lg font-black gap-3 shadow-2xl shadow-primary/20">
-                                    {loading ? <RotateCcw className="h-5 w-5 animate-spin" /> : <Zap className="h-5 w-5" />}
-                                    START COMBAT
+                                <Button onClick={handleJoinBattle} disabled={loading} className="w-full h-20 rounded-[2rem] text-xl font-black gap-4 shadow-2xl shadow-primary/30 bg-primary hover:bg-primary/90 border-none group">
+                                    {loading ? <RotateCcw className="h-6 w-6 animate-spin" /> : <Play className="h-6 w-6 fill-current group-hover:scale-110 transition-transform" />}
+                                    INITIATE MISSION
                                 </Button>
+                            </Card>
+                        </div>
+                    )}
+
+                    {gameState === 'join' && (
+                        <div className="max-w-xl mx-auto py-20 space-y-10 px-6">
+                            <div className="flex items-center gap-4">
+                                <Button variant="ghost" onClick={() => setGameState('lobby')} className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 text-slate-400 hover:text-white">
+                                    <ChevronRight className="h-5 w-5 rotate-180" />
+                                </Button>
+                                <div className="space-y-0.5">
+                                    <Badge className="bg-rose-500/20 text-rose-500 border-none text-[8px] font-black uppercase tracking-[0.2em]">INFILTRATION PROTOCOL</Badge>
+                                    <h2 className="text-2xl font-black tracking-tight text-white uppercase italic">Infiltrate Arena</h2>
+                                </div>
+                            </div>
+                            <Card className="border-white/10 bg-white/5 backdrop-blur-2xl rounded-[3rem] p-10 space-y-8 shadow-2xl relative overflow-hidden">
+                                <div className="absolute top-0 right-0 p-8 opacity-5">
+                                    <Users className="h-32 w-32" />
+                                </div>
+                                <div className="space-y-8 relative z-10">
+                                    <div className="grid gap-3">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-rose-500 px-1">Target Signature (Room ID)</label>
+                                        <div className="relative">
+                                            <Lock className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-rose-500" />
+                                            <Input 
+                                                value={roomConfig.id}
+                                                onChange={(e) => setRoomConfig(prev => ({ ...prev, id: e.target.value.toUpperCase() }))}
+                                                placeholder="ENTER SIGNATURE..." 
+                                                className="h-16 pl-14 bg-black/60 border-rose-500/20 focus:border-rose-500 focus:ring-rose-500/10 rounded-2xl font-black tracking-[0.3em] text-white uppercase"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-rose-500 px-1">Operational Team</label>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <button 
+                                                onClick={() => setRoomConfig(prev => ({ ...prev, team: 'Shadow' }))} 
+                                                className={`h-20 rounded-2xl border transition-all flex flex-col items-center justify-center gap-1 ${
+                                                    roomConfig.team === 'Shadow' 
+                                                    ? 'bg-primary/20 border-primary text-primary shadow-lg shadow-primary/10' 
+                                                    : 'bg-black/40 border-white/5 text-slate-500 hover:border-white/10'
+                                                }`}
+                                            >
+                                                <span className="text-xs font-black uppercase italic">Shadow</span>
+                                                <span className="text-[8px] font-bold opacity-60 uppercase tracking-widest">Stealth Ops</span>
+                                            </button>
+                                            <button 
+                                                onClick={() => setRoomConfig(prev => ({ ...prev, team: 'Crimson' }))} 
+                                                className={`h-20 rounded-2xl border transition-all flex flex-col items-center justify-center gap-1 ${
+                                                    roomConfig.team === 'Crimson' 
+                                                    ? 'bg-rose-500/20 border-rose-500 text-rose-500 shadow-lg shadow-rose-500/10' 
+                                                    : 'bg-black/40 border-white/5 text-slate-500 hover:border-white/10'
+                                                }`}
+                                            >
+                                                <span className="text-xs font-black uppercase italic">Crimson</span>
+                                                <span className="text-[8px] font-bold opacity-60 uppercase tracking-widest">Direct Strike</span>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <Button 
+                                        onClick={handleJoinBattle} 
+                                        disabled={loading || !roomConfig.id} 
+                                        className="w-full h-20 rounded-[2rem] text-xl font-black gap-4 shadow-2xl shadow-rose-500/20 bg-rose-500 hover:bg-rose-500/90 border-none group mt-4"
+                                    >
+                                        {loading ? <RotateCcw className="h-6 w-6 animate-spin" /> : <Zap className="h-6 w-6 fill-current group-hover:scale-110 transition-transform" />}
+                                        COMMENCE OPERATION
+                                    </Button>
+                                </div>
                             </Card>
                         </div>
                     )}
@@ -670,22 +850,15 @@ export default function BattleArenaPage() {
                                 </div>
 
                                 <div className="flex-1 relative bg-[#1e1e1e] overflow-hidden">
-                                     <div className="absolute top-4 left-4 flex flex-col items-center gap-0.5 pointer-events-none opacity-20 select-none">
-                                        {Array.from({ length: 50 }).map((_, i) => (
-                                            <span key={i} className="text-[10px] font-mono leading-relaxed">{i + 1}</span>
-                                        ))}
-                                    </div>
-                                    <textarea 
+                                    <CodeEditor
                                         value={codeMap[questions[currentQuestionIndex]?.id] || ""}
-                                        onChange={(e) => {
-                                            const newCode = e.target.value;
+                                        onChange={(newCode) => {
                                             setCodeMap(prev => ({
                                                 ...prev,
                                                 [questions[currentQuestionIndex].id]: newCode
                                             }));
                                         }}
-                                        spellCheck={false}
-                                        className="w-full h-full bg-transparent text-[#d4d4d4] p-4 pl-10 font-mono text-[13px] leading-relaxed resize-none focus:outline-none custom-scrollbar"
+                                        language={language.id}
                                     />
                                 </div>
 
@@ -741,39 +914,50 @@ export default function BattleArenaPage() {
                                                                 )}
                                                             </div>
                                                             {result.totalCount > 0 && (
-                                                                <div className="h-3 w-full bg-white/5 rounded-full overflow-hidden p-0.5 border border-white/10 shadow-[inner_0_2px_4px_rgba(0,0,0,0.5)]">
-                                                                    <motion.div 
-                                                                        initial={{ width: 0 }} 
-                                                                        animate={{ width: `${(result.passCount / result.totalCount) * 100}%` }} 
-                                                                        className={`h-full rounded-full ${result.isCorrect ? 'bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)]' : 'bg-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.5)]'}`} 
-                                                                    />
+                                                                <div className="space-y-2">
+                                                                    <div className="h-3 w-full bg-white/5 rounded-full overflow-hidden p-0.5 border border-white/10 shadow-[inner_0_2px_4px_rgba(0,0,0,0.5)]">
+                                                                        <motion.div 
+                                                                            initial={{ width: 0 }} 
+                                                                            animate={{ width: `${(result.passCount / result.totalCount) * 100}%` }} 
+                                                                            transition={{ duration: 0.8, ease: 'easeOut' }}
+                                                                            className={`h-full rounded-full ${result.isCorrect ? 'bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)]' : 'bg-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.5)]'}`} 
+                                                                        />
+                                                                    </div>
+                                                                    <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">
+                                                                        {result.passCount} of {result.totalCount} test cases passed ({((result.passCount / result.totalCount) * 100).toFixed(1)}%)
+                                                                        {result.failedTestNumber && ` · First failure at test #${result.failedTestNumber}`}
+                                                                    </p>
                                                                 </div>
                                                             )}
 
                                                             {!result.isCorrect && result.failedTests?.length > 0 && (
                                                                 <div className="space-y-3 pt-2">
-                                                                    <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest">Failed Test Insights</p>
-                                                                    <div className="space-y-2">
+                                                                    <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest">Failed Test Cases</p>
+                                                                    <div className="space-y-3">
                                                                         {result.failedTests.map((ft, i) => (
                                                                             <div key={i} className="p-4 rounded-2xl bg-rose-500/5 border border-rose-500/10 space-y-3">
-                                                                                <div className="grid grid-cols-2 gap-4">
-                                                                                    <div className="space-y-1">
-                                                                                        <p className="text-[8px] font-bold text-slate-500 uppercase">Input</p>
-                                                                                        <code className="text-[10px] text-slate-300 block bg-black/40 p-2 rounded-lg">{ft.input}</code>
-                                                                                    </div>
-                                                                                    <div className="space-y-1">
-                                                                                        <p className="text-[8px] font-bold text-slate-500 uppercase">Reason</p>
-                                                                                        <p className="text-[10px] text-rose-400 font-bold">{ft.reason}</p>
+                                                                                <div className="flex items-center justify-between">
+                                                                                    <div className="flex items-center gap-2">
+                                                                                        <div className="h-6 w-6 rounded-lg bg-rose-500/20 flex items-center justify-center">
+                                                                                            <span className="text-[9px] font-black text-rose-500">#{ft.testNumber || (i + 1)}</span>
+                                                                                        </div>
+                                                                                        <Badge className="bg-rose-500/10 text-rose-400 border-none text-[9px] font-black uppercase">{ft.reason || 'WA'}</Badge>
                                                                                     </div>
                                                                                 </div>
-                                                                                <div className="grid grid-cols-2 gap-4">
+                                                                                <div className="space-y-2">
                                                                                     <div className="space-y-1">
-                                                                                        <p className="text-[8px] font-bold text-emerald-500 uppercase">Expected</p>
-                                                                                        <code className="text-[10px] text-emerald-400/80 block bg-black/40 p-2 rounded-lg">{ft.expected}</code>
+                                                                                        <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Input</p>
+                                                                                        <code className="text-[11px] text-slate-300 block bg-black/60 p-3 rounded-xl font-mono leading-relaxed whitespace-pre-wrap break-all">{ft.input}</code>
                                                                                     </div>
-                                                                                    <div className="space-y-1">
-                                                                                        <p className="text-[8px] font-bold text-rose-500 uppercase">Actual</p>
-                                                                                        <code className="text-[10px] text-rose-400/80 block bg-black/40 p-2 rounded-lg">{ft.actual}</code>
+                                                                                    <div className="grid grid-cols-2 gap-3">
+                                                                                        <div className="space-y-1">
+                                                                                            <p className="text-[8px] font-bold text-emerald-500 uppercase tracking-widest">Expected Output</p>
+                                                                                            <code className="text-[11px] text-emerald-400/80 block bg-emerald-500/5 border border-emerald-500/10 p-3 rounded-xl font-mono whitespace-pre-wrap break-all">{ft.expected}</code>
+                                                                                        </div>
+                                                                                        <div className="space-y-1">
+                                                                                            <p className="text-[8px] font-bold text-rose-500 uppercase tracking-widest">Your Output</p>
+                                                                                            <code className="text-[11px] text-rose-400/80 block bg-rose-500/5 border border-rose-500/10 p-3 rounded-xl font-mono whitespace-pre-wrap break-all">{ft.actual}</code>
+                                                                                        </div>
                                                                                     </div>
                                                                                 </div>
                                                                             </div>

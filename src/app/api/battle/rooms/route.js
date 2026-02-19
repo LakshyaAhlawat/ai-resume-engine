@@ -1,6 +1,14 @@
 import { NextResponse } from 'next/server';
+import { roomEmitter } from './emitter';
 
 const ROOMS = new Map();
+
+function broadcast(roomId) {
+    const room = ROOMS.get(roomId);
+    if (room) {
+        roomEmitter.emit('update', { roomId, room });
+    }
+}
 
 export async function POST(req) {
     try {
@@ -18,6 +26,7 @@ export async function POST(req) {
                     status: 'joined',
                     points: 0
                 };
+                broadcast(roomId); // Notify all SSE listeners
             }
             
             return NextResponse.json({ success: true, room });
@@ -41,6 +50,7 @@ export async function POST(req) {
         };
         
         ROOMS.set(roomId, room);
+        broadcast(roomId); // Notify on creation
         return NextResponse.json({ success: true, room });
     } catch (error) {
         return NextResponse.json({ success: false, error: "Sync failure" }, { status: 500 });
@@ -62,6 +72,7 @@ export async function PUT(req) {
                 if (points !== undefined) room.members[userId].points = points;
             }
             
+            broadcast(roomId); // Push live update to all connected clients
             return NextResponse.json({ success: true, room });
         }
         return NextResponse.json({ success: false, error: "Room not found" }, { status: 404 });
