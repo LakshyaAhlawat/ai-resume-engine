@@ -7,7 +7,7 @@ import { Bot, ArrowLeft, Shield } from "lucide-react"
 
 export default function PrivacyPage() {
   return (
-    <div className="min-h-screen bg-[#020617] text-slate-300 py-20 px-6 font-light">
+    <div className="min-h-screen overflow-x-hidden bg-[#020617] text-slate-300 py-20 px-6 font-light">
       <div className="max-w-3xl mx-auto space-y-12">
         <Link href="/" className="inline-flex items-center gap-2 text-primary hover:underline mb-8">
           <ArrowLeft className="h-4 w-4" /> Back to Home
@@ -17,7 +17,7 @@ export default function PrivacyPage() {
            <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-6">
               <Shield className="h-8 w-8 text-primary" />
            </div>
-           <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight">Privacy Policy</h1>
+           <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight break-words">Privacy Policy</h1>
            <p className="text-slate-500">Last updated: February 3, 2026</p>
         </header>
 
@@ -38,7 +38,7 @@ export default function PrivacyPage() {
 
           <h2 className="text-2xl font-bold text-white pt-4">3. Data Security</h2>
           <p>
-            We use enterprise-grade encryption and secure database protocols (Supabase) to protect your information. Access to your candidates is restricted to your authenticated account.
+            We use enterprise-grade encryption and secure database protocols (MongoDB) to protect your information. Access to your candidates is restricted to your authenticated account.
           </p>
 
           <h2 className="text-2xl font-bold text-white pt-4">4. Your Rights</h2>

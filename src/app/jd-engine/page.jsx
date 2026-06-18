@@ -84,12 +84,12 @@ export default function JDEnginePage() {
             </div>
             <div className="space-y-2">
               <label className="text-xs font-bold uppercase text-muted-foreground">Tone</label>
-              <div className="flex gap-2 p-1 bg-muted rounded-lg">
+              <div className="grid grid-cols-2 sm:flex gap-2 p-1 bg-muted rounded-lg">
                 {['modern', 'robust', 'scrappy', 'corporate'].map((t) => (
                   <button
                     key={t}
                     onClick={() => setFormData(prev => ({ ...prev, tone: t }))}
-                    className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all capitalize ${formData.tone === t ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                    className={`sm:flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all capitalize ${formData.tone === t ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                   >
                     {t}
                   </button>
@@ -163,7 +163,7 @@ export default function JDEnginePage() {
                         </ul>
                      </div>
 
-                      <div className="grid grid-cols-2 gap-8">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
                         <div className="space-y-4">
                            <h3 className="text-sm font-bold uppercase tracking-widest text-primary">Technical Stack</h3>
                            <div className="flex flex-wrap gap-2">
@@ -180,7 +180,7 @@ export default function JDEnginePage() {
 
                       <div className="space-y-4 pt-4 border-t border-primary/10">
                         <h3 className="text-sm font-bold uppercase tracking-widest text-primary">Success Markers</h3>
-                        <ul className="grid grid-cols-2 gap-x-6 gap-y-2">
+                        <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
                             {(jdData?.preferred || []).map((p, i) => (
                                 <li key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
                                     <CheckCircle2 className="h-3 w-3 text-green-500" /> {p}

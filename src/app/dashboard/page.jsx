@@ -2,6 +2,7 @@
 
 import { AppShell } from "@/components/layout/AppShell"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { TiltCard } from "@/components/ui/tilt-card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -12,25 +13,37 @@ import { useState, useEffect } from "react"
 
 export default function DashboardPage() {
   const [candidates, setCandidates] = useState([])
+  const [stats, setStats] = useState({ total: 0, avgScore: 0, shortlisted: 0, rejected: 0, active: 0 })
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const fetchCandidates = async () => {
-        const { supabase } = await import("@/lib/supabase")
-        const { data, error } = await supabase
-            .from('candidates')
-            .select('*')
-            .order('created_at', { ascending: false })
-        
-        if (error) {
-            console.error("Error fetching candidates:", error)
-            return
-        }
-
-        if (data) {
-            setCandidates(data)
+    const fetchStats = async () => {
+        try {
+            const { getCandidates } = await import("@/actions/candidateActions")
+            const res = await getCandidates();
+            
+            if (res.success && res.candidates) {
+                const data = res.candidates;
+                setCandidates(data)
+                
+                // Calculate quick stats
+                setStats({
+                    total: data.length,
+                    avgScore: Math.round(data.reduce((acc, c) => acc + (c.score || 0), 0) / (data.length || 1)),
+                    shortlisted: data.filter(c => c.status === 'Accepted').length,
+                    rejected: data.filter(c => c.status === 'Rejected').length,
+                    active: data.filter(c => c.status !== 'Accepted' && c.status !== 'Rejected').length
+                })
+            } else {
+                console.error("Error fetching candidates:", res.error)
+            }
+        } catch (err) {
+            console.error("Dashboard error:", err)
+        } finally {
+            setLoading(false)
         }
     }
-    fetchCandidates()
+    fetchStats()
   }, [])
 
   const totalCandidates = candidates.length
@@ -43,50 +56,58 @@ export default function DashboardPage() {
   return (
     <AppShell title="Dashboard">
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Candidates</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalCandidates}</div>
-            <p className="text-xs text-muted-foreground">Across all positions</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Shortlisted</CardTitle>
-            <div className="h-4 w-4 rounded-full bg-green-500/20" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{shortlisted}</div>
-            <p className="text-xs text-muted-foreground">Qualified for interview</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg. Match Score</CardTitle>
-            <div className="h-4 w-4 rounded-full bg-blue-500/20" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{avgScore}%</div>
-            <p className="text-xs text-muted-foreground">Overall talent quality</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Roles</CardTitle>
-            <div className="h-4 w-4 rounded-full bg-orange-500/20" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{openRoles}</div>
-            <p className="text-xs text-muted-foreground">Currently hiring</p>
-          </CardContent>
-        </Card>
+        <TiltCard>
+          <Card className="border-0 shadow-none bg-card/60">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Candidates</CardTitle>
+              <FileText className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{totalCandidates}</div>
+              <p className="text-xs text-muted-foreground">Across all positions</p>
+            </CardContent>
+          </Card>
+        </TiltCard>
+        <TiltCard>
+          <Card className="border-0 shadow-none bg-card/60">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Shortlisted</CardTitle>
+              <div className="h-4 w-4 rounded-full bg-green-500/20" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{shortlisted}</div>
+              <p className="text-xs text-muted-foreground">Qualified for interview</p>
+            </CardContent>
+          </Card>
+        </TiltCard>
+        <TiltCard>
+          <Card className="border-0 shadow-none bg-card/60">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Avg. Match Score</CardTitle>
+              <div className="h-4 w-4 rounded-full bg-blue-500/20" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{avgScore}%</div>
+              <p className="text-xs text-muted-foreground">Overall talent quality</p>
+            </CardContent>
+          </Card>
+        </TiltCard>
+        <TiltCard>
+          <Card className="border-0 shadow-none bg-card/60">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Active Roles</CardTitle>
+              <div className="h-4 w-4 rounded-full bg-orange-500/20" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{openRoles}</div>
+              <p className="text-xs text-muted-foreground">Currently hiring</p>
+            </CardContent>
+          </Card>
+        </TiltCard>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-1">
-        <Card className="col-span-1">
+      <div className="grid gap-4 md:grid-cols-1 min-w-0">
+        <Card className="col-span-1 min-w-0">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Recent Candidates</CardTitle>
             <Button size="sm" variant="outline">

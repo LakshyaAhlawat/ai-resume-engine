@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server';
 import Groq from "groq-sdk";
+import { requireAuth } from '@/lib/apiGuard';
 
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
 
 export async function POST(request) {
   try {
+    const auth = await requireAuth();
+    if (!auth.ok) return auth.response;
+
     const { candidate, jobDescription } = await request.json();
 
     if (!candidate) {

@@ -7,7 +7,7 @@ import { Bot, ArrowLeft, FileText } from "lucide-react"
 
 export default function TermsPage() {
   return (
-    <div className="min-h-screen bg-[#020617] text-slate-300 py-20 px-6 font-light">
+    <div className="min-h-screen overflow-x-hidden bg-[#020617] text-slate-300 py-20 px-6 font-light">
       <div className="max-w-3xl mx-auto space-y-12">
         <Link href="/" className="inline-flex items-center gap-2 text-primary hover:underline mb-8">
           <ArrowLeft className="h-4 w-4" /> Back to Home
@@ -17,7 +17,7 @@ export default function TermsPage() {
            <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-6">
               <FileText className="h-8 w-8 text-primary" />
            </div>
-           <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight">Terms of Service</h1>
+           <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight break-words">Terms of Service</h1>
            <p className="text-slate-500">Last updated: February 3, 2026</p>
         </header>
 

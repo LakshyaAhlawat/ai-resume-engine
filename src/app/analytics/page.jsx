@@ -20,6 +20,12 @@ import {
   Legend
 } from "recharts"
 
+const chartTooltipStyle = {
+  contentStyle: { backgroundColor: 'var(--card)', borderColor: 'var(--border)', borderRadius: 8 },
+  itemStyle: { color: 'var(--foreground)' },
+  labelStyle: { color: 'var(--foreground)' },
+}
+
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
 export default function AnalyticsPage() {
@@ -54,14 +60,14 @@ export default function AnalyticsPage() {
     const fetchData = async () => {
         setLoading(true)
         try {
-            const { supabase } = await import("@/lib/supabase")
-            const { data: candidates, error } = await supabase
-                .from('candidates')
-                .select('*')
+            const { getCandidates } = await import("@/actions/candidateActions")
+            const res = await getCandidates()
             
-            if (error) throw error
+            if (!res.success) throw new Error(res.error)
 
-            if (candidates && candidates.length > 0) {
+            const candidates = res.candidates || []
+
+            if (candidates.length > 0) {
                 // 1. Calculate Average Score
                 const totalScore = candidates.reduce((acc, c) => acc + (c.score || 0), 0)
                 const avg = (totalScore / candidates.length).toFixed(1)
@@ -214,18 +220,15 @@ export default function AnalyticsPage() {
                                 <AreaChart data={scoreData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                                     <defs>
                                         <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8}/>
-                                            <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                                            <stop offset="5%" stopColor="var(--chart-1)" stopOpacity={0.8}/>
+                                            <stop offset="95%" stopColor="var(--chart-1)" stopOpacity={0}/>
                                         </linearGradient>
                                     </defs>
-                                    <XAxis dataKey="range" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                                    <Tooltip 
-                                         contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))' }}
-                                         itemStyle={{ color: 'hsl(var(--foreground))' }}
-                                    />
-                                    <Area type="monotone" dataKey="count" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#colorCount)" />
+                                    <XAxis dataKey="range" stroke="var(--muted-foreground)" fontSize={12} />
+                                    <YAxis stroke="var(--muted-foreground)" fontSize={12} />
+                                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                                    <Tooltip {...chartTooltipStyle} />
+                                    <Area type="monotone" dataKey="count" stroke="var(--chart-1)" strokeWidth={2} fillOpacity={1} fill="url(#colorCount)" />
                                 </AreaChart>
                             </ResponsiveContainer>
                         </CardContent>
@@ -238,14 +241,15 @@ export default function AnalyticsPage() {
                         <CardContent>
                             <ResponsiveContainer width="100%" height={300}>
                                 <BarChart data={funnel} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
-                                    <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                                    <YAxis dataKey="name" type="category" stroke="hsl(var(--muted-foreground))" fontSize={12} width={120} />
-                                    <Tooltip 
-                                         contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))' }}
-                                         itemStyle={{ color: 'hsl(var(--foreground))' }}
-                                    />
-                                    <Bar dataKey="value" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--border)" />
+                                    <XAxis type="number" stroke="var(--muted-foreground)" fontSize={12} />
+                                    <YAxis dataKey="name" type="category" stroke="var(--muted-foreground)" fontSize={12} width={120} />
+                                    <Tooltip {...chartTooltipStyle} />
+                                    <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                                        {funnel.map((entry, index) => (
+                                            <Cell key={index} fill={entry.fill} />
+                                        ))}
+                                    </Bar>
                                 </BarChart>
                             </ResponsiveContainer>
                         </CardContent>
@@ -262,14 +266,11 @@ export default function AnalyticsPage() {
                     <CardContent>
                         <ResponsiveContainer width="100%" height={350}>
                             <BarChart data={fairnessData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                                <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" />
-                                <YAxis domain={[0, 100]} stroke="hsl(var(--muted-foreground))" />
-                                <Tooltip 
-                                     contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))' }}
-                                     itemStyle={{ color: 'hsl(var(--foreground))' }}
-                                />
-                                <Bar dataKey="score" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} barSize={50} />
+                                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                                <XAxis dataKey="name" stroke="var(--muted-foreground)" />
+                                <YAxis domain={[0, 100]} stroke="var(--muted-foreground)" />
+                                <Tooltip {...chartTooltipStyle} />
+                                <Bar dataKey="score" fill="var(--chart-2)" radius={[4, 4, 0, 0]} barSize={50} />
                             </BarChart>
                         </ResponsiveContainer>
                     </CardContent>
@@ -285,14 +286,11 @@ export default function AnalyticsPage() {
                     <CardContent>
                         <ResponsiveContainer width="100%" height={400}>
                             <BarChart data={skillsDistribution} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
-                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
-                                <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                                <YAxis dataKey="name" type="category" stroke="hsl(var(--muted-foreground))" fontSize={12} width={100} />
-                                <Tooltip 
-                                     contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))' }}
-                                     itemStyle={{ color: 'hsl(var(--foreground))' }}
-                                />
-                                <Bar dataKey="value" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--border)" />
+                                <XAxis type="number" stroke="var(--muted-foreground)" fontSize={12} />
+                                <YAxis dataKey="name" type="category" stroke="var(--muted-foreground)" fontSize={12} width={100} />
+                                <Tooltip {...chartTooltipStyle} />
+                                <Bar dataKey="value" fill="var(--chart-4)" radius={[0, 4, 4, 0]} />
                             </BarChart>
                         </ResponsiveContainer>
                     </CardContent>

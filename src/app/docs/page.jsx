@@ -1,19 +1,21 @@
 
 "use client"
 
+import { Suspense, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { AppShell } from "@/components/layout/AppShell"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { 
-  BookOpen, 
-  Sparkles, 
-  Search, 
-  ShieldCheck, 
-  Zap, 
-  MessageSquare, 
-  BarChart3, 
+import {
+  BookOpen,
+  Sparkles,
+  Search,
+  ShieldCheck,
+  Zap,
+  MessageSquare,
+  BarChart3,
   ArrowRight,
   Lightbulb,
   Bot,
@@ -26,23 +28,39 @@ import {
   Users2,
   FileEdit,
   MapPin,
-  Globe
+  Globe,
+  LayoutDashboard,
+  Users,
+  Scale,
+  Settings,
+  Lock
 } from "lucide-react"
 
 export default function DocsPage() {
+  return (
+    <Suspense fallback={null}>
+      <DocsPageContent />
+    </Suspense>
+  )
+}
+
+function DocsPageContent() {
+  const searchParams = useSearchParams()
+  const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "workspace")
+
   return (
     <AppShell title="AI Resume Engine: Mega Guide">
       <div className="max-w-6xl mx-auto space-y-12 pb-20">
         
         {/* Hero Section */}
         <div className="relative overflow-hidden rounded-[2rem] bg-zinc-950 border border-primary/20 p-8 md:p-20 text-center space-y-8 shadow-2xl">
-          <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_top_left,rgba(var(--primary-rgb),0.15),transparent)] pointer-events-none" />
+          <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_top_left,color-mix(in_oklch,var(--chart-2)_25%,transparent),transparent)] pointer-events-none" />
           <div className="flex justify-center">
-            <Badge variant="outline" className="px-6 py-2 border-primary/30 text-primary bg-primary/10 rounded-full text-xs font-black uppercase tracking-[0.2em]">
+            <Badge variant="outline" className="px-4 sm:px-6 py-2 border-primary/30 text-primary bg-primary/10 rounded-full text-[10px] sm:text-xs font-black uppercase tracking-widest sm:tracking-[0.2em] whitespace-normal text-center max-w-full">
                GenAI All-in-One Suite v2.0
             </Badge>
           </div>
-          <h1 className="text-5xl md:text-7xl font-black tracking-tighter bg-gradient-to-b from-white to-white/40 bg-clip-text text-transparent">
+          <h1 className="text-3xl sm:text-4xl md:text-7xl font-black tracking-tighter break-words bg-gradient-to-b from-white to-white/40 bg-clip-text text-transparent">
             Your Hiring <br /><span className="text-primary italic">Exponentially</span> Faster.
           </h1>
           <p className="text-muted-foreground text-xl max-w-3xl mx-auto leading-relaxed">
@@ -51,16 +69,103 @@ export default function DocsPage() {
         </div>
 
         {/* Categories Tabbed navigation */}
-        <Tabs defaultValue="basics" className="space-y-10">
-            <div className="flex justify-center">
-                <TabsList className="bg-muted/50 p-1 h-14 rounded-2xl border border-primary/10">
-                    <TabsTrigger value="basics" className="px-8 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground h-full">Basics</TabsTrigger>
-                    <TabsTrigger value="genai" className="px-8 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground h-full">GenAI Suite</TabsTrigger>
-                    <TabsTrigger value="jd" className="px-8 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground h-full">JD Engine</TabsTrigger>
-                    <TabsTrigger value="intelligence" className="px-8 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground h-full">Candidate Intel</TabsTrigger>
-                    <TabsTrigger value="predictive" className="px-8 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground h-full">Predictive Suite</TabsTrigger>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-10">
+            <div className="flex justify-center overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 sm:overflow-x-visible">
+                <TabsList className="bg-muted/50 p-1 h-14 rounded-2xl border border-primary/10 shrink-0">
+                    <TabsTrigger value="workspace" className="px-4 sm:px-8 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground h-full">Workspace</TabsTrigger>
+                    <TabsTrigger value="basics" className="px-4 sm:px-8 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground h-full">Basics</TabsTrigger>
+                    <TabsTrigger value="genai" className="px-4 sm:px-8 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground h-full">GenAI Suite</TabsTrigger>
+                    <TabsTrigger value="jd" className="px-4 sm:px-8 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground h-full">JD Engine</TabsTrigger>
+                    <TabsTrigger value="intelligence" className="px-4 sm:px-8 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground h-full">Candidate Intel</TabsTrigger>
+                    <TabsTrigger value="predictive" className="px-4 sm:px-8 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground h-full">Predictive Suite</TabsTrigger>
                 </TabsList>
             </div>
+
+            <TabsContent value="workspace" className="space-y-10 animate-in fade-in slide-in-from-bottom-5 duration-500">
+                <div className="text-center max-w-2xl mx-auto space-y-4 mb-10">
+                    <h2 className="text-3xl sm:text-4xl font-black break-words">Your Core Workspace</h2>
+                    <p className="text-muted-foreground leading-relaxed">
+                        These are the everyday screens in your sidebar. Every one of them only ever shows data that belongs to your account — built on a strict per-user data model, never shared across recruiters.
+                    </p>
+                </div>
+                <div className="grid gap-8 md:grid-cols-3">
+                    <Card className="border-primary/10 bg-primary/[0.02]">
+                        <CardHeader>
+                            <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center mb-2">
+                                <LayoutDashboard className="h-5 w-5 text-primary" />
+                            </div>
+                            <CardTitle>Dashboard</CardTitle>
+                        </CardHeader>
+                        <CardContent className="text-sm text-muted-foreground leading-relaxed">
+                            Your pipeline at a glance: candidate counts, average scores, and recent activity. It exists so you never have to dig through the full candidate list just to know where hiring stands today.
+                        </CardContent>
+                    </Card>
+                    <Card className="border-primary/10 bg-primary/[0.02]">
+                        <CardHeader>
+                            <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center mb-2">
+                                <Users className="h-5 w-5 text-primary" />
+                            </div>
+                            <CardTitle>Candidates</CardTitle>
+                        </CardHeader>
+                        <CardContent className="text-sm text-muted-foreground leading-relaxed">
+                            Every resume you&apos;ve uploaded, scored, and saved — searchable and filterable. This is your single source of truth per role, so nothing falls through the cracks between screening rounds.
+                        </CardContent>
+                    </Card>
+                    <Card className="border-primary/10 bg-primary/[0.02]">
+                        <CardHeader>
+                            <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center mb-2">
+                                <Scale className="h-5 w-5 text-primary" />
+                            </div>
+                            <CardTitle>Compare</CardTitle>
+                        </CardHeader>
+                        <CardContent className="text-sm text-muted-foreground leading-relaxed">
+                            Put 2+ shortlisted candidates side-by-side and let AI surface the trade-offs — who has the highest ceiling vs. the lowest-risk hire — so the final call isn&apos;t a gut feeling.
+                        </CardContent>
+                    </Card>
+                    <Card className="border-primary/10 bg-primary/[0.02]">
+                        <CardHeader>
+                            <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center mb-2">
+                                <MapPin className="h-5 w-5 text-primary" />
+                            </div>
+                            <CardTitle>Talent Mapping</CardTitle>
+                        </CardHeader>
+                        <CardContent className="text-sm text-muted-foreground leading-relaxed">
+                            A visual map of your whole candidate pool by skill density and seniority. Useful for spotting gaps in your pipeline before they become a hiring crisis.
+                        </CardContent>
+                    </Card>
+                    <Card className="border-primary/10 bg-primary/[0.02]">
+                        <CardHeader>
+                            <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center mb-2">
+                                <BarChart3 className="h-5 w-5 text-primary" />
+                            </div>
+                            <CardTitle>Analytics</CardTitle>
+                        </CardHeader>
+                        <CardContent className="text-sm text-muted-foreground leading-relaxed">
+                            Trends across every candidate you&apos;ve evaluated — score distributions, skill demand, and market intel. Helps you justify hiring decisions with data, not just instinct.
+                        </CardContent>
+                    </Card>
+                    <Card className="border-primary/10 bg-primary/[0.02]">
+                        <CardHeader>
+                            <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center mb-2">
+                                <Settings className="h-5 w-5 text-primary" />
+                            </div>
+                            <CardTitle>Settings</CardTitle>
+                        </CardHeader>
+                        <CardContent className="text-sm text-muted-foreground leading-relaxed">
+                            Manage your profile and account. Your login is the only key to your data — nobody else can see your candidates, chats, or scoring history, and you can&apos;t see theirs.
+                        </CardContent>
+                    </Card>
+                </div>
+                <div className="p-8 rounded-2xl border border-primary/20 bg-primary/5 flex items-start gap-4">
+                    <Lock className="h-6 w-6 text-primary shrink-0 mt-1" />
+                    <div>
+                        <h4 className="font-semibold mb-1">Privacy, by design</h4>
+                        <p className="text-sm text-muted-foreground leading-relaxed">
+                            Every candidate, resume, score, and AI chat you create is tagged to your account on the server and filtered on every query — not just hidden in the UI. Logging in as a different user shows a completely empty workspace until that user uploads their own resumes.
+                        </p>
+                    </div>
+                </div>
+            </TabsContent>
 
             <TabsContent value="basics" className="space-y-10 animate-in fade-in slide-in-from-bottom-5 duration-500">
                 <div className="grid gap-8 md:grid-cols-3">
@@ -98,13 +203,51 @@ export default function DocsPage() {
                         </CardContent>
                     </Card>
                 </div>
+
+                <div className="space-y-6">
+                    <div className="text-center max-w-2xl mx-auto space-y-2">
+                        <h3 className="text-2xl font-black">Choose Your AI Persona</h3>
+                        <p className="text-sm text-muted-foreground leading-relaxed">
+                            Every score and insight is generated through a lens you pick on the candidate page. Same resume, same JD — different persona, different verdict. Use the one that matches what you're actually hiring for.
+                        </p>
+                    </div>
+                    <div className="grid gap-6 md:grid-cols-3">
+                        <Card className="border-primary/10 bg-primary/[0.02]">
+                            <CardHeader>
+                                <Badge variant="outline" className="w-fit mb-2 text-[10px] uppercase tracking-widest">Strictest</Badge>
+                                <CardTitle>Expert Auditor</CardTitle>
+                            </CardHeader>
+                            <CardContent className="text-sm text-muted-foreground leading-relaxed">
+                                Skeptical and precise. Grades strictly on proven technical evidence and seniority — no benefit of the doubt. Best for senior or mission-critical hires where a wrong call is expensive.
+                            </CardContent>
+                        </Card>
+                        <Card className="border-primary/10 bg-primary/[0.02]">
+                            <CardHeader>
+                                <Badge variant="outline" className="w-fit mb-2 text-[10px] uppercase tracking-widest">Fastest-moving</Badge>
+                                <CardTitle>Startup Hacker</CardTitle>
+                            </CardHeader>
+                            <CardContent className="text-sm text-muted-foreground leading-relaxed">
+                                Values speed and versatility over polish. Rewards candidates who've shipped real things from scratch, even without a perfectly clean resume. Best for early-stage, scrappy teams.
+                            </CardContent>
+                        </Card>
+                        <Card className="border-primary/10 bg-primary/[0.02]">
+                            <CardHeader>
+                                <Badge variant="outline" className="w-fit mb-2 text-[10px] uppercase tracking-widest">Long-term</Badge>
+                                <CardTitle>System Architect</CardTitle>
+                            </CardHeader>
+                            <CardContent className="text-sm text-muted-foreground leading-relaxed">
+                                Prioritizes scalability and maintainability over raw speed. Favors clean structure and design thinking. Best for platform, infrastructure, or staff-level roles.
+                            </CardContent>
+                        </Card>
+                    </div>
+                </div>
             </TabsContent>
 
             <TabsContent value="genai" className="space-y-12 animate-in fade-in slide-in-from-bottom-5 duration-500">
                 <div className="grid md:grid-cols-2 gap-12 items-center">
                     <div className="space-y-6">
                         <Badge className="bg-primary/20 text-primary border-primary/20">Level 1 Feature</Badge>
-                        <h2 className="text-4xl font-black flex items-center gap-3">
+                        <h2 className="text-3xl sm:text-4xl font-black flex items-center gap-3 break-words">
                             <Bot className="h-8 w-8 text-primary" /> AI Ghost Chat
                         </h2>
                         <p className="text-lg text-muted-foreground leading-relaxed">
@@ -140,7 +283,7 @@ export default function DocsPage() {
                     </div>
                     <div className="order-1 md:order-2 space-y-6">
                         <Badge className="bg-primary/20 text-primary border-primary/20">Engagement</Badge>
-                        <h2 className="text-4xl font-black flex items-center gap-3">
+                        <h2 className="text-3xl sm:text-4xl font-black flex items-center gap-3 break-words">
                             <Mail className="h-8 w-8 text-primary" /> Talent Outreach
                         </h2>
                         <p className="text-lg text-muted-foreground leading-relaxed">
@@ -159,7 +302,7 @@ export default function DocsPage() {
 
             <TabsContent value="jd" className="space-y-12 animate-in fade-in slide-in-from-bottom-5 duration-500">
                 <div className="text-center max-w-2xl mx-auto space-y-4 mb-10">
-                    <h2 className="text-4xl font-black">AI JD Architect</h2>
+                    <h2 className="text-3xl sm:text-4xl font-black break-words">AI JD Architect</h2>
                     <p className="text-muted-foreground leading-relaxed">
                         Don't start with a blank page. Build high-converting JDs in seconds by defining your mission and tech stack.
                     </p>
@@ -235,7 +378,7 @@ export default function DocsPage() {
                 <div className="grid md:grid-cols-2 gap-12 items-center">
                     <div className="space-y-6">
                         <Badge className="bg-primary/20 text-primary border-primary/20">Level 4 Prediction</Badge>
-                        <h2 className="text-4xl font-black flex items-center gap-3">
+                        <h2 className="text-3xl sm:text-4xl font-black flex items-center gap-3 break-words">
                             <Rocket className="h-8 w-8 text-primary" /> Projected Career Arc
                         </h2>
                         <p className="text-lg text-muted-foreground leading-relaxed">
@@ -244,7 +387,7 @@ export default function DocsPage() {
                     </div>
                     <div className="space-y-6">
                         <Badge className="bg-primary/20 text-primary border-primary/20">Team Psychology</Badge>
-                        <h2 className="text-4xl font-black flex items-center gap-3">
+                        <h2 className="text-3xl sm:text-4xl font-black flex items-center gap-3 break-words">
                             <Users2 className="h-8 w-8 text-primary" /> Team Dynamics Audit
                         </h2>
                         <p className="text-lg text-muted-foreground leading-relaxed">

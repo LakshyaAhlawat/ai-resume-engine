@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server';
 import Groq from "groq-sdk";
+import { requireAuth, apiError } from '@/lib/apiGuard';
 
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
 
 export async function POST(request) {
   try {
+    const auth = await requireAuth();
+    if (!auth.ok) return auth.response;
+
     const { message, candidate } = await request.json();
 
     if (!groq) {
@@ -50,7 +54,6 @@ export async function POST(request) {
     });
 
   } catch (error) {
-    console.error("Groq Chat Error:", error);
-    return NextResponse.json({ error: "Chat processing failed in Groq engine" }, { status: 500 });
+    return apiError(error, "Chat processing failed in Groq engine");
   }
 }

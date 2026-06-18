@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server';
 import Groq from "groq-sdk";
+import { requireAuth, apiError } from '@/lib/apiGuard';
 
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
 
 export async function POST(request) {
   try {
+    const auth = await requireAuth();
+    if (!auth.ok) return auth.response;
+
     const { candidates } = await request.json();
 
     if (!groq) {
@@ -59,7 +63,6 @@ export async function POST(request) {
     return NextResponse.json(JSON.parse(completion.choices[0]?.message?.content));
 
   } catch (error) {
-    console.error("Batch Groq Scoring Error:", error);
-    return NextResponse.json({ error: "Failed to generate batch intelligence via Groq" }, { status: 500 });
+    return apiError(error, "Failed to generate batch intelligence via Groq");
   }
 }

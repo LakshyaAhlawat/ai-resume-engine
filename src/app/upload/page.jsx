@@ -10,6 +10,8 @@ import { UploadCloud, File, X, Info } from "lucide-react"
 
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
+import { uploadResumeBlob } from "@/actions/uploadActions"
+import { saveCandidate } from "@/actions/candidateActions"
 
 export default function UploadPage() {
   const [dragActive, setDragActive] = useState(false)
@@ -75,7 +77,11 @@ export default function UploadPage() {
         // 2. Mock Scoring
         const scoreRes = await fetch('/api/scoring', { 
             method: 'POST', 
-            body: JSON.stringify({ jd: "Mock JD", candidate_data: parseData }) 
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                jd: jobDescription || roleTitle || "General software engineering role",
+                candidate_data: parseData 
+            }) 
         })
         
         if (!scoreRes.ok) {
@@ -84,24 +90,18 @@ export default function UploadPage() {
 
         const scoreData = await scoreRes.json()
 
-        // 3. Upload to Supabase Storage
-        const { supabase } = await import("@/lib/supabase")
-        const file = files[0].originalFile
-        const sanitizedName = file.name.replace(/[^a-zA-Z0-9.]/g, '_')
-        const fileName = `${Math.random().toString(36).substr(2, 9)}-${sanitizedName}`
-        
-        const { data: uploadData, error: uploadError } = await supabase.storage
-            .from('resumes')
-            .upload(fileName, file)
+        // 3. Upload to Vercel Blob Storage
+        const uploadFormData = new FormData()
+        uploadFormData.append('file', files[0].originalFile)
 
-        if (uploadError) {
-            console.error("Upload error details:", uploadError)
-            throw new Error(`Resume upload failed: ${uploadError.message}. Make sure the 'resumes' bucket is created and set to public in Supabase Storage.`)
+        const uploadResult = await uploadResumeBlob(uploadFormData)
+
+        if (!uploadResult.success) {
+            console.error("Upload error details:", uploadResult.error)
+            throw new Error(`Resume upload failed: ${uploadResult.error}. Make sure Vercel Blob is configured.`)
         }
 
-        const { data: { publicUrl } } = supabase.storage
-            .from('resumes')
-            .getPublicUrl(fileName)
+        const publicUrl = uploadResult.url
 
         // 4. Create Candidate Object & Save to Database
         const newCandidate = {
@@ -117,20 +117,17 @@ export default function UploadPage() {
             },
             extracted_data: parseData.parsed_data,
             resume_url: publicUrl,
-            resume_name: file.name
+            resume_name: files[0].originalFile.name
         }
 
-        const { data: insertedData, error: insertError } = await supabase
-            .from('candidates')
-            .insert([newCandidate])
-            .select()
+        const saveResult = await saveCandidate(newCandidate)
 
-        if (insertError) {
-            console.error("Database insert error:", insertError)
-            throw new Error(`Failed to save candidate: ${insertError.message}. Make sure the 'candidates' table is created.`)
+        if (!saveResult.success) {
+            console.error("Database insert error:", saveResult.error)
+            throw new Error(`Failed to save candidate: ${saveResult.error}.`)
         }
         
-        const savedCandidate = insertedData[0]
+        const savedCandidate = saveResult.candidate
         toast.success("Resume analyzed and saved successfully!")
 
         // 5. Redirect

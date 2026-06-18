@@ -21,7 +21,10 @@ export async function POST(request) {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     const internalRes = await fetch(`${baseUrl}/api/scoring`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-internal-key': secret
+      },
       body: JSON.stringify({ jd, candidate_data: candidate, persona })
     });
 

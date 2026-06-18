@@ -2,11 +2,16 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
+import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { ArrowRight, Bot, CheckCircle2, Zap, Sparkles, ShieldCheck, MessageSquare, BarChart3, Globe, Lock } from "lucide-react"
+import { ArrowRight, Bot, CheckCircle2, Zap, Sparkles, ShieldCheck, MessageSquare, BarChart3, Globe, Lock, UploadCloud, ScanSearch } from "lucide-react"
 import { motion } from "framer-motion"
-import { LiveLeaderboard } from "@/components/landing/LiveLeaderboard"
+import heroImage from "../../public/hero_bg.png"
+import analyticsImage from "../../public/feat_analytics.png"
+
+const Background3D = dynamic(() => import("@/components/landing/Background3D").then(m => m.Background3D), { ssr: false })
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -25,11 +30,8 @@ const staggerContainer = {
 export default function LandingPage() {
   return (
     <div className="flex flex-col min-h-screen bg-[#020617] text-slate-50 selection:bg-primary/30 selection:text-white overflow-x-hidden">
-      {/* Background Glows */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/20 rounded-full blur-[120px] mix-blend-screen animate-pulse" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/10 rounded-full blur-[120px] mix-blend-screen" />
-      </div>
+      {/* 3D Background */}
+      <Background3D />
 
       <header className="px-6 h-20 flex items-center border-b border-white/5 backdrop-blur-xl bg-black/40 fixed w-full z-50 transition-all">
         <motion.div 
@@ -44,8 +46,8 @@ export default function LandingPage() {
         </motion.div>
         
         <nav className="ml-auto hidden md:flex gap-8 items-center mr-8">
-          {['Leaderboard', 'Features', 'Arena'].map((item) => (
-            <Link key={item} href={item === 'Arena' ? '/battle' : `#${item.toLowerCase()}`} className="text-sm font-medium text-slate-400 hover:text-white transition-colors relative group">
+          {['How It Works', 'Features'].map((item) => (
+            <Link key={item} href={`#${item.toLowerCase().replace(/\s+/g, '-')}`} className="text-sm font-medium text-slate-400 hover:text-white transition-colors relative group">
               {item}
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all group-hover:w-full" />
             </Link>
@@ -83,7 +85,7 @@ export default function LandingPage() {
                   initial={{ opacity: 0, filter: "blur(20px)", y: 20 }}
                   animate={{ opacity: 1, filter: "blur(0px)", y: 0 }}
                   transition={{ duration: 1.2, ease: "easeOut" }}
-                  className="text-6xl md:text-9xl font-black tracking-tighter bg-gradient-to-b from-white via-white to-white/20 bg-clip-text text-transparent leading-[0.95] drop-shadow-[0_0_30px_rgba(255,255,255,0.1)]"
+                  className="text-4xl sm:text-5xl md:text-7xl lg:text-9xl font-black tracking-tighter break-words bg-gradient-to-b from-white via-white to-white/20 bg-clip-text text-transparent leading-[0.95] drop-shadow-[0_0_30px_rgba(255,255,255,0.1)]"
                 >
                   Hire Smarter with <br /> 
                   <span className="text-primary italic relative">
@@ -115,11 +117,6 @@ export default function LandingPage() {
                       Get Started <ArrowRight className="ml-2 h-6 w-6 transition-transform group-hover:translate-x-1" />
                     </Button>
                 </Link>
-                <Link href="/battle">
-                    <Button variant="outline" size="lg" className="h-16 px-12 text-xl rounded-2xl border-white/10 hover:bg-white/5 backdrop-blur-xl group hover:-translate-y-1 transition-all duration-300">
-                        <Zap className="mr-2 h-5 w-5 text-primary group-hover:fill-primary animate-pulse" /> Enter Battle Arena
-                    </Button>
-                </Link>
               </motion.div>
 
               {/* Cinematic Image Frame with 3D Depth */}
@@ -129,9 +126,16 @@ export default function LandingPage() {
                 transition={{ duration: 1.5, delay: 0.6, ease: "easeOut" }}
                 className="w-full max-w-6xl mt-24 p-3 rounded-[3rem] border border-white/10 bg-white/5 backdrop-blur-3xl shadow-[0_50px_100px_-20px_rgba(0,0,0,0.8),0_0_50px_rgba(var(--primary-rgb),0.1)] overflow-hidden hover:scale-[1.02] transition-transform duration-700 perspective-1000"
               >
-                <div className="rounded-[2.5rem] overflow-hidden border border-white/10 relative group">
+                <div className="rounded-[2.5rem] overflow-hidden border border-white/10 relative group aspect-21/9">
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60 z-10" />
-                  <img src="/hero_bg.png" alt="Futuristic AI Dashboard" className="w-full aspect-[21/9] object-cover hover:scale-105 transition-transform duration-3000 ease-out" />
+                  <Image
+                    src={heroImage}
+                    alt="Futuristic AI Dashboard"
+                    fill
+                    priority
+                    sizes="(max-width: 1280px) 100vw, 1152px"
+                    className="object-cover group-hover:scale-105 transition-transform duration-3000 ease-out"
+                  />
                   <div className="absolute bottom-10 left-10 z-20 space-y-2 opacity-0 group-hover:opacity-100 transition-opacity duration-500 translate-y-4 group-hover:translate-y-0 text-left">
                     <Badge className="bg-primary/20 text-primary border-primary/30">Live Platform v2.0</Badge>
                     <p className="text-white font-black text-2xl tracking-tighter italic">Forensic Intelligence Matrix</p>
@@ -142,22 +146,60 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Global Talent Pulse Section */}
-        <section id="leaderboard" className="w-full py-24 md:py-32 relative">
+        {/* How It Works */}
+        <section id="how-it-works" className="w-full py-24 md:py-32 relative">
           <div className="container px-4 md:px-6 mx-auto">
             <div className="text-center mb-20 space-y-4">
               <Badge variant="outline" className="px-4 py-1 border-primary/30 text-primary bg-primary/10 rounded-full text-[10px] font-black uppercase tracking-widest">
-                Real-Time Competitive Index
+                From Resume to Decision
               </Badge>
-              <h2 className="text-3xl md:text-6xl font-black tracking-tight tracking-tighter">Global <span className="text-primary italic">Talent Pulse</span></h2>
+              <h2 className="text-3xl md:text-6xl font-black tracking-tight tracking-tighter break-words">How It <span className="text-primary italic">Works</span></h2>
               <p className="text-slate-400 text-lg max-w-2xl mx-auto font-light leading-relaxed">
-                Aggregating live "Proof of Work" (GitHub) and "Problem Solving" (LeetCode) data to rank the world's most effective engineers.
+                Three steps from a pile of resumes to a ranked, evidence-backed shortlist.
               </p>
             </div>
-            
-            <div className="max-w-5xl mx-auto">
-                <LiveLeaderboard />
-            </div>
+
+            <motion.div
+              variants={staggerContainer}
+              initial="initial"
+              whileInView="animate"
+              viewport={{ once: true }}
+              className="grid gap-8 md:grid-cols-3 max-w-5xl mx-auto"
+            >
+              {[
+                {
+                  step: "01",
+                  icon: UploadCloud,
+                  title: "Upload Resumes & JD",
+                  desc: "Drop in PDF or DOCX resumes — one or a hundred — alongside the job description you're hiring for.",
+                },
+                {
+                  step: "02",
+                  icon: ScanSearch,
+                  title: "AI Scores & Audits",
+                  desc: "We extract structured candidate data, score it against the JD across five dimensions, and run a fairness audit — in seconds.",
+                },
+                {
+                  step: "03",
+                  icon: CheckCircle2,
+                  title: "Review & Decide",
+                  desc: "Get a ranked shortlist with reasoning, interview questions, and red flags. You make the call — backed by evidence, not gut feel.",
+                },
+              ].map((item, i) => (
+                <motion.div
+                  key={i}
+                  variants={fadeInUp}
+                  className="relative p-8 rounded-3xl border border-white/5 bg-white/5 backdrop-blur-xl hover:bg-white/[0.08] transition-all"
+                >
+                  <span className="absolute top-6 right-6 text-5xl font-black text-white/5 select-none">{item.step}</span>
+                  <div className="p-3 rounded-xl w-fit mb-6 bg-primary/10">
+                    <item.icon className="h-6 w-6 text-primary" />
+                  </div>
+                  <h3 className="text-xl font-bold mb-3">{item.title}</h3>
+                  <p className="text-slate-400 leading-relaxed font-light">{item.desc}</p>
+                </motion.div>
+              ))}
+            </motion.div>
           </div>
         </section>
 
@@ -165,7 +207,7 @@ export default function LandingPage() {
         <section id="features" className="w-full py-24 md:py-32 relative bg-white/[0.02]">
           <div className="container px-4 md:px-6 mx-auto">
             <div className="text-center mb-20 space-y-4">
-              <h2 className="text-3xl md:text-5xl font-bold tracking-tight">Powerful Core Features</h2>
+              <h2 className="text-3xl md:text-5xl font-bold tracking-tight break-words">Powerful Core Features</h2>
               <p className="text-slate-400 text-lg max-w-2xl mx-auto">Built on the 'gemini-1.5-pro' backbone for unprecedented reasoning depth.</p>
             </div>
             
@@ -202,7 +244,7 @@ export default function LandingPage() {
                 <motion.div 
                   key={i}
                   variants={fadeInUp}
-                  className="group relative p-8 rounded-3xl border border-white/5 bg-white/5 hover:bg-white/[0.08] transition-all hover:-translate-y-2 cursor-pointer overflow-hidden"
+                  className="group relative p-8 rounded-3xl border border-white/5 bg-white/5 backdrop-blur-xl hover:bg-white/[0.12] transition-all hover:-translate-y-2 cursor-pointer overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:shadow-[0_8px_30px_rgba(var(--primary-rgb),0.2)]"
                 >
                   <div className={`p-3 rounded-xl w-fit mb-6 ${feature.bg}`}>
                     <feature.icon className={`h-6 w-6 ${feature.color}`} />
@@ -230,7 +272,7 @@ export default function LandingPage() {
                     <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center">
                        <BarChart3 className="h-6 w-6 text-primary" />
                     </div>
-                    <h2 className="text-4xl md:text-6xl font-black leading-tight tracking-tighter">
+                    <h2 className="text-3xl sm:text-4xl md:text-6xl font-black leading-tight tracking-tighter break-words">
                        Predictive Talent <br /> <span className="text-primary italic">Forecasting</span>
                     </h2>
                     <p className="text-slate-400 text-lg leading-relaxed font-light">
@@ -257,7 +299,12 @@ export default function LandingPage() {
                  >
                     <div className="absolute inset-0 bg-primary/20 blur-[100px] rounded-full" />
                     <div className="relative rounded-[3rem] border border-white/10 bg-white/5 backdrop-blur-2xl p-4 overflow-hidden">
-                       <img src="/feat_analytics.png" alt="Forecasting" className="rounded-[2.5rem] w-full" />
+                       <Image
+                         src={analyticsImage}
+                         alt="Forecasting"
+                         className="rounded-[2.5rem] w-full h-auto"
+                         sizes="(max-width: 1024px) 100vw, 600px"
+                       />
                     </div>
                  </motion.div>
               </div>
@@ -267,12 +314,12 @@ export default function LandingPage() {
         {/* Security Section */}
         <section id="security" className="w-full py-24 relative overflow-hidden">
            <div className="container px-4 md:px-6 mx-auto">
-              <div className="max-w-4xl mx-auto rounded-[3rem] border border-white/5 bg-white/5 p-8 md:p-16 text-center space-y-8 relative overflow-hidden group">
+              <div className="max-w-4xl mx-auto rounded-[3rem] border border-white/5 bg-white/5 backdrop-blur-xl shadow-2xl p-8 md:p-16 text-center space-y-8 relative overflow-hidden group">
                  <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
                  <div className="h-16 w-16 rounded-2xl bg-green-500/10 flex items-center justify-center mx-auto">
                     <Lock className="h-8 w-8 text-green-500" />
                  </div>
-                 <h2 className="text-3xl md:text-5xl font-bold tracking-tight">Enterprise Grade <span className="text-green-500">Security</span></h2>
+                 <h2 className="text-3xl md:text-5xl font-bold tracking-tight break-words">Enterprise Grade <span className="text-green-500">Security</span></h2>
                  <p className="text-slate-400 text-lg leading-relaxed max-w-2xl mx-auto font-light">
                     Your candidate data is encrypted and stored in isolated instances. We use standard-compliant auth protocols and never use your private resumes for training our global models.
                  </p>
@@ -289,11 +336,11 @@ export default function LandingPage() {
         <section className="w-full py-32 relative overflow-hidden">
            <div className="absolute inset-0 bg-primary rounded-full blur-[300px] opacity-10 -translate-y-1/2" />
            <div className="container px-4 md:px-6 mx-auto relative z-10 text-center space-y-10">
-              <h2 className="text-4xl md:text-7xl font-black tracking-tighter">
+              <h2 className="text-3xl sm:text-4xl md:text-7xl font-black tracking-tighter break-words">
                  Ready to eliminate <br /> <span className="text-primary italic">manual screening?</span>
               </h2>
               <p className="max-w-2xl mx-auto text-slate-400 text-xl font-light">
-                 Join 500+ talent acquisition teams using ResumeAI to automate their technical hiring.
+                 Start automating your technical hiring with evidence-backed, bias-audited AI scoring.
               </p>
               <div className="pt-6">
                 <Link href="/login">

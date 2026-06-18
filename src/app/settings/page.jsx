@@ -16,6 +16,7 @@ import { toast } from "sonner"
 
 import { useAuth } from "@/lib/auth"
 import { useRouter } from "next/navigation"
+import { uploadAvatar } from "@/actions/userActions"
 
 export default function SettingsPage() {
   const { setTheme, theme } = useTheme()
@@ -34,9 +35,9 @@ export default function SettingsPage() {
     setMounted(true)
     if (user) {
       setProfile({
-        name: user.user_metadata?.full_name || "",
+        name: user.name || "",
         email: user.email || "",
-        role: user.user_metadata?.role || ""
+        role: user.role || ""
       })
     }
   }, [user])
@@ -67,32 +68,17 @@ export default function SettingsPage() {
       setLoading(true)
       try {
           const file = e.target.files[0]
-          const { supabase } = await import("@/lib/supabase")
-          const fileExt = file.name.split('.').pop()
-          const fileName = `${user.id}-${Math.random().toString(36).substring(2, 9)}.${fileExt}`
-          const filePath = fileName
+          const formData = new FormData()
+          formData.append("file", file)
 
-          // 1. Upload to Storage
-          const { error: uploadError } = await supabase.storage
-              .from('avatars') 
-              .upload(filePath, file)
+          const result = await uploadAvatar(formData)
+          if (!result.success) throw new Error(result.error)
 
-          if (uploadError) throw uploadError
-
-          // 2. Get Public URL
-          const { data: { publicUrl } } = supabase.storage
-              .from('avatars')
-              .getPublicUrl(filePath)
-
-          // 3. Update Profile Metadata
-          await updateProfile({
-              avatar_url: publicUrl
-          })
-          
+          await updateProfile({ avatar_url: result.url })
           toast.success("Avatar updated successfully")
       } catch (error) {
           console.error("Avatar Upload Error:", error)
-          toast.error("Failed to upload avatar. Check storage permissions.")
+          toast.error("Failed to upload avatar. Check Vercel Blob configuration.")
       } finally {
           setLoading(false)
       }
@@ -144,7 +130,7 @@ export default function SettingsPage() {
                         <CardContent className="space-y-6">
                             <div className="flex items-center gap-6">
                                 <Avatar className="h-24 w-24 border-2 border-primary/10">
-                                    <AvatarImage src={user?.user_metadata?.avatar_url} />
+                                    <AvatarImage src={user?.image} />
                                     <AvatarFallback className="text-2xl bg-primary/10 text-primary">
                                         {profile.name.split(" ").map(n => n[0]).join("").toUpperCase().substring(0, 2) || "RC"}
                                     </AvatarFallback>

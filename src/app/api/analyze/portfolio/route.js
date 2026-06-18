@@ -2,12 +2,16 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import Groq from "groq-sdk";
+import { requireAuth, apiError } from '@/lib/apiGuard';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "mock-key");
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
 
 export async function POST(request) {
   try {
+    const auth = await requireAuth();
+    if (!auth.ok) return auth.response;
+
     const { portfolio_url, candidate_data } = await request.json();
 
     if (!portfolio_url || !candidate_data) {
@@ -65,7 +69,6 @@ export async function POST(request) {
 
     return NextResponse.json({ error: 'Research failed' }, { status: 500 });
   } catch (error) {
-    console.error("Portfolio Researcher Fatal Error:", error);
-    return NextResponse.json({ error: 'Research failed' }, { status: 500 });
+    return apiError(error, 'Research failed');
   }
 }

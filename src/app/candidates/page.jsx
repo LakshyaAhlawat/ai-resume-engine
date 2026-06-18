@@ -2,6 +2,7 @@
 
 import { AppShell } from "@/components/layout/AppShell"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { TiltCard } from "@/components/ui/tilt-card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -9,16 +10,26 @@ import { Progress } from "@/components/ui/progress"
 import { Input } from "@/components/ui/input"
 import { MoreHorizontal, Search, Filter, ArrowUpRight, Download, Swords, History, Check, RotateCcw } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import { useAuth } from "@/lib/auth"
+import { getCandidates } from "@/actions/candidateActions"
 
 export default function CandidatesPage() {
   const router = useRouter()
   const [candidates, setCandidates] = useState([])
   const [search, setSearch] = useState("")
+  const [statusFilter, setStatusFilter] = useState("All")
   const [loading, setLoading] = useState(true)
   const [selectedIds, setSelectedIds] = useState([])
 
@@ -26,19 +37,12 @@ export default function CandidatesPage() {
     const fetchCandidates = async () => {
         setLoading(true)
         try {
-            const { supabase } = await import("@/lib/supabase")
-            const { data, error } = await supabase
-                .from('candidates')
-                .select('*')
-                .order('created_at', { ascending: false })
-            
-            if (error) {
-                console.error("Error fetching candidates:", error)
-                return
-            }
-
-            if (data) {
-                setCandidates(data)
+            const res = await getCandidates();
+            if (res.success && res.candidates) {
+                setCandidates(res.candidates);
+            } else {
+                console.error("Error fetching candidates:", res.error);
+                setCandidates([]);
             }
         } catch (err) {
             console.error("Fetch error:", err)
@@ -49,13 +53,17 @@ export default function CandidatesPage() {
     fetchCandidates()
   }, [])
 
-  const filteredCandidates = candidates.filter(c => 
-    c.name?.toLowerCase().includes(search.toLowerCase()) || 
-    c.role?.toLowerCase().includes(search.toLowerCase())
-  )
+  const statusOptions = ["All", ...Array.from(new Set(candidates.map(c => c.status || "Pending")))]
+
+  const filteredCandidates = candidates.filter(c => {
+    const matchesSearch = c.name?.toLowerCase().includes(search.toLowerCase()) ||
+      c.role?.toLowerCase().includes(search.toLowerCase())
+    const matchesStatus = statusFilter === "All" || (c.status || "Pending") === statusFilter
+    return matchesSearch && matchesStatus
+  })
 
   const toggleSelection = (id) => {
-    setSelectedIds(prev => 
+    setSelectedIds(prev =>
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
     )
   }
@@ -66,6 +74,35 @@ export default function CandidatesPage() {
         return
     }
     router.push(`/candidates/compare?ids=${selectedIds.join(',')}&multitask=true`)
+  }
+
+  const exportCsv = () => {
+    if (filteredCandidates.length === 0) {
+        toast.error("No candidates to export")
+        return
+    }
+    const headers = ["Name", "Email", "Role", "Score", "Status", "Applied"]
+    const rows = filteredCandidates.map(c => [
+        c.name || "Unknown",
+        c.email || "N/A",
+        c.role || "General Application",
+        `${c.score || 0}%`,
+        c.status || "Pending",
+        c.applied || "Initial Screening",
+    ])
+    const escapeCsv = (value) => `"${String(value).replace(/"/g, '""')}"`
+    const csv = [headers, ...rows].map(row => row.map(escapeCsv).join(",")).join("\n")
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = `candidates-${new Date().toISOString().slice(0, 10)}.csv`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+    toast.success(`Exported ${filteredCandidates.length} candidate${filteredCandidates.length > 1 ? 's' : ''}`)
   }
 
   return (
@@ -83,17 +120,32 @@ export default function CandidatesPage() {
                     />
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button variant="outline">
-                        <Filter className="mr-2 h-4 w-4" />
-                        Filter
-                    </Button>
-                    <Button variant="outline">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline">
+                                <Filter className="mr-2 h-4 w-4" />
+                                Filter{statusFilter !== "All" ? `: ${statusFilter}` : ""}
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Filter by status</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            {statusOptions.map((status) => (
+                                <DropdownMenuItem key={status} onClick={() => setStatusFilter(status)}>
+                                    {statusFilter === status && <Check className="mr-2 h-4 w-4" />}
+                                    <span className={statusFilter === status ? "" : "ml-6"}>{status}</span>
+                                </DropdownMenuItem>
+                            ))}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                    <Button variant="outline" onClick={exportCsv}>
                         <Download className="mr-2 h-4 w-4" />
                         Export
                     </Button>
                 </div>
             </div>
 
+            <TiltCard className="rounded-[2rem]">
             <Card className="border-primary/20 bg-card/40 backdrop-blur-xl overflow-hidden rounded-[2rem] shadow-2xl">
                 <CardHeader className="border-b border-primary/10 bg-primary/5">
                     <CardTitle className="text-xl font-black tracking-tight">Main Pipeline</CardTitle>
@@ -185,22 +237,23 @@ export default function CandidatesPage() {
                     )}
                 </CardContent>
             </Card>
+            </TiltCard>
 
             {selectedIds.length > 0 && (
-                <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-5 duration-300">
-                    <Card className="shadow-2xl border-primary/20 bg-primary/5 backdrop-blur-md">
-                        <CardContent className="p-4 flex items-center gap-6">
-                            <div className="flex items-center gap-2">
-                                <Swords className="h-5 w-5 text-primary" />
+                <div className="fixed inset-x-4 bottom-6 z-50 flex justify-center sm:inset-x-0 sm:bottom-10 animate-in slide-in-from-bottom-5 duration-300">
+                    <Card className="w-full sm:w-auto shadow-2xl border-primary/20 bg-primary/5 backdrop-blur-md">
+                        <CardContent className="p-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-6">
+                            <div className="flex items-center justify-center sm:justify-start gap-2">
+                                <Swords className="h-5 w-5 text-primary shrink-0" />
                                 <span className="text-sm font-semibold whitespace-nowrap">
                                     {selectedIds.length} Candidate{selectedIds.length > 1 ? 's' : ''} Selected
                                 </span>
                             </div>
                             <div className="flex gap-2">
-                                <Button variant="ghost" size="sm" onClick={() => setSelectedIds([])}>
+                                <Button variant="ghost" size="sm" className="flex-1 sm:flex-none" onClick={() => setSelectedIds([])}>
                                     Clear
                                 </Button>
-                                 <Button size="sm" onClick={startBattle} disabled={selectedIds.length < 2} className="shadow-lg">
+                                 <Button size="sm" className="flex-1 sm:flex-none shadow-lg" onClick={startBattle} disabled={selectedIds.length < 2}>
                                     Launch Intelligence Matrix <ArrowUpRight className="ml-2 h-4 w-4" />
                                 </Button>
                             </div>

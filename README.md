@@ -1,7 +1,7 @@
 # 🤖 AI Resume Shortlisting Engine (GenAI All-in-One)
 
-[![Next.js](https://img.shields.io/badge/Next.js-15-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-38B2AC?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com/)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-38B2AC?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com/)
 [![Gemini AI](https://img.shields.io/badge/Google_Gemini-1.5_Pro-4285F4?style=for-the-badge&logo=google-gemini)](https://aistudio.google.com/)
 [![Groq](https://img.shields.io/badge/Groq-Llama_3.3-orange?style=for-the-badge)](https://groq.com/)
 
@@ -33,11 +33,13 @@ Architect the perfect job description in seconds. Optimized for ATS and engageme
 
 | Component | Technology |
 | :--- | :--- |
-| **Frontend** | Next.js 15 (App Router), React 19, Framer Motion, ShadCN UI |
+| **Frontend** | Next.js 16 (App Router), React 19, Framer Motion, ShadCN UI |
 | **Visualization** | Recharts (Radar, Bar, Pie Charts) |
 | **Primary AI** | Google Gemini 1.5 Pro |
 | **Fallback AI** | Groq (Llama 3.3-70B Versatile) |
-| **Database** | Supabase (PostgreSQL + Auth) |
+| **Database** | MongoDB (Mongoose) |
+| **Auth** | NextAuth.js (Credentials + JWT) |
+| **File Storage** | Vercel Blob |
 | **Parsing** | pdf-parse-fork, mammoth (DOCX) |
 
 > [!IMPORTANT]
@@ -48,9 +50,11 @@ Architect the perfect job description in seconds. Optimized for ATS and engageme
 ## 📦 Getting Started
 
 ### Prerequisites
-* Node.js 18+ 
+* Node.js 18+
+* MongoDB database (local or [MongoDB Atlas](https://www.mongodb.com/atlas))
 * Gemini API Key
-* Groq API Key (Optional but recommended for fallback)
+* Groq API Key (optional but recommended for fallback)
+* Vercel Blob token (for resume and avatar uploads)
 
 ### Installation
 1. **Clone the repo**
@@ -65,18 +69,31 @@ Architect the perfect job description in seconds. Optimized for ATS and engageme
    ```
 
 3. **Environment Setup**
-   Create a `.env.local` file:
+   Copy `.env.example` to `.env.local` and fill in your values:
+   ```bash
+   cp .env.example .env.local
+   ```
+
+   Required variables:
    ```env
-   NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+   MONGODB_URI=mongodb+srv://...
+   NEXTAUTH_SECRET=your-secret-here
    GEMINI_API_KEY=your_gemini_api_key
+   BLOB_READ_WRITE_TOKEN=your_vercel_blob_token
+   ```
+
+   Optional:
+   ```env
    GROQ_API_KEY=your_groq_api_key
+   NEXTAUTH_URL=http://localhost:3000
    ```
 
 4. **Run Dev Server**
    ```bash
    npm run dev
    ```
+
+5. **Open** [http://localhost:3000](http://localhost:3000), create an account, and start uploading resumes.
 
 ---
 

@@ -2,12 +2,16 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import Groq from "groq-sdk";
+import { requireAuth, apiError } from '@/lib/apiGuard';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "mock-key");
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
 
 export async function POST(request) {
   try {
+    const auth = await requireAuth();
+    if (!auth.ok) return auth.response;
+
     const { jd, candidate_name, candidate_data, platform = 'linkedin', tone = 'professional' } = await request.json();
 
     if (!jd || !candidate_data) {
@@ -67,7 +71,6 @@ export async function POST(request) {
 
     return NextResponse.json({ error: 'Failed to generate outreach message' }, { status: 500 });
   } catch (error) {
-    console.error("Outreach Fatal Error:", error);
-    return NextResponse.json({ error: 'Failed to generate outreach message' }, { status: 500 });
+    return apiError(error, 'Failed to generate outreach message');
   }
 }

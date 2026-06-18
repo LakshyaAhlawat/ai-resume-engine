@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { requireAuth, apiError } from '@/lib/apiGuard';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
@@ -24,6 +25,9 @@ function chunkText(text, maxLength = 1000) {
 
 export async function POST(request) {
   try {
+    const auth = await requireAuth();
+    if (!auth.ok) return auth.response;
+
     const { text } = await request.json();
 
     if (!text) {
@@ -52,7 +56,6 @@ export async function POST(request) {
     });
 
   } catch (error) {
-    console.error("Embedding Error", error);
-    return NextResponse.json({ error: "Embedding failed" }, { status: 500 });
+    return apiError(error, "Embedding failed");
   }
 }

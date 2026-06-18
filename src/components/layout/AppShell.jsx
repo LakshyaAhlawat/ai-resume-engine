@@ -2,13 +2,17 @@
 
 import { Sidebar } from "@/components/layout/Sidebar"
 import { Header } from "@/components/layout/Header"
+import { Background3D } from "@/components/landing/Background3D"
 import { useAuth } from "@/lib/auth"
 import { useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
+import { AnimatePresence, motion } from "framer-motion"
+import { TooltipProvider } from "@/components/ui/tooltip"
 
 export function AppShell({ children, title }) {
   const { user, loading } = useAuth()
   const router = useRouter()
+  const pathname = usePathname()
 
   useEffect(() => {
     if (!loading && !user) {
@@ -30,14 +34,30 @@ export function AppShell({ children, title }) {
   if (!user) return null
 
   return (
-    <div className="flex min-h-screen premium-bg">
-      <Sidebar />
-      <div className="flex-1 flex flex-col relative z-10">
-        <Header title={title} />
-        <main className="flex-1 p-6 space-y-6 overflow-auto">
-          {children}
-        </main>
+    <TooltipProvider delayDuration={200}>
+      <div className="flex min-h-screen premium-bg">
+        <Background3D variant="subtle" />
+        <div className="scanline-overlay" />
+        <span className="hud-corner hud-corner-tr" />
+        <span className="hud-corner hud-corner-br" />
+        <Sidebar />
+        <div className="flex-1 min-w-0 flex flex-col relative z-10">
+          <Header title={title} />
+          <main className="flex-1 min-w-0 p-4 sm:p-6 space-y-6 overflow-auto overflow-x-hidden">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={pathname}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
+              >
+                {children}
+              </motion.div>
+            </AnimatePresence>
+          </main>
+        </div>
       </div>
-    </div>
+    </TooltipProvider>
   )
 }

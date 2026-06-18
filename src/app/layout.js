@@ -1,10 +1,10 @@
-import { Inter } from "next/font/google";
+import { Outfit } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/sonner"
 import { AuthProvider } from "@/lib/auth"
 
-const inter = Inter({ subsets: ["latin"] });
+const outfit = Outfit({ subsets: ["latin"] });
 
 export const metadata = {
   title: "AI Resume Shortlisting Engine",
@@ -14,7 +14,7 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.className} antialiased selection:bg-primary/20 selection:text-primary`}>
+      <body className={`${outfit.className} antialiased selection:bg-primary/40 selection:text-primary-foreground`}>
         <AuthProvider>
           <ThemeProvider
             attribute="class"

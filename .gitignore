@@ -29,6 +29,9 @@ yarn-error.log*
 # Vercel
 .vercel
 
+# Local dev fallback for uploaded resumes/avatars (real user files — never commit)
+/public/uploads/
+
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts

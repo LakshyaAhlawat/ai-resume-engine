@@ -2,12 +2,16 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import Groq from "groq-sdk";
+import { requireAuth, apiError } from '@/lib/apiGuard';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "mock-key");
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
 
 export async function POST(request) {
   try {
+    const auth = await requireAuth();
+    if (!auth.ok) return auth.response;
+
     const { role_title, key_requirements, company_context, tone = 'modern' } = await request.json();
 
     if (!role_title) {
@@ -64,8 +68,7 @@ export async function POST(request) {
 
     return NextResponse.json({ error: 'Failed to architect the perfect JD' }, { status: 500 });
   } catch (error) {
-    console.error("JD Generator Fatal Error:", error);
-    return NextResponse.json({ error: 'Failed to architect the perfect JD' }, { status: 500 });
+    return apiError(error, 'Failed to architect the perfect JD');
   }
 }
 

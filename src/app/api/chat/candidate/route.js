@@ -2,12 +2,16 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import Groq from "groq-sdk";
+import { requireAuth, apiError } from '@/lib/apiGuard';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "mock-key");
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
 
 export async function POST(request) {
   try {
+    const auth = await requireAuth();
+    if (!auth.ok) return auth.response;
+
     const { message, history, candidate_name, candidate_data, jd } = await request.json();
 
     if (!message || !candidate_data) {
@@ -80,7 +84,6 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Ghost candidate is currently silent.' }, { status: 500 });
 
   } catch (error) {
-    console.error("Ghost Chat Fatal Error:", error);
-    return NextResponse.json({ error: 'Ghost candidate is currently silent.' }, { status: 500 });
+    return apiError(error, 'Ghost candidate is currently silent.');
   }
 }

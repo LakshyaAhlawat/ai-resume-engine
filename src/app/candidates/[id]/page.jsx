@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
-import { MapPin, Calendar, CheckCircle2, XCircle, Download, Mail, Copy, ChevronLeft, Send, Bot, User, Trash2, Check, X, TrendingUp, Sparkles, Brain, LayoutGrid, RotateCcw, Plus, Github, Linkedin, ExternalLink, Coins, Eye, MonitorPlay, Target, Rocket, EyeOff, ShieldCheck, AlertCircle, ThumbsUp, ThumbsDown, BarChart3, Flame, MessageSquareQuote, Hourglass, Users2, FileEdit, Milestone, LineChart } from "lucide-react"
+import { MapPin, Calendar, CheckCircle2, XCircle, Download, Mail, Copy, ChevronLeft, Send, Bot, User, Trash2, Check, X, TrendingUp, Sparkles, Brain, LayoutGrid, RotateCcw, Plus, Github, Linkedin, ExternalLink, Coins, Eye, MonitorPlay, Target, Rocket, EyeOff, ShieldCheck, AlertCircle, ThumbsUp, ThumbsDown, BarChart3, Flame, MessageSquareQuote, Hourglass, Users2, FileEdit, Milestone, LineChart, Zap } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -22,6 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Tooltip as InfoTooltip, TooltipTrigger as InfoTooltipTrigger, TooltipContent as InfoTooltipContent } from "@/components/ui/tooltip"
 import {
   BarChart,
   Bar,
@@ -40,6 +41,21 @@ import {
   Pie
 } from "recharts"
 
+const PERSONA_INFO = {
+  expert: {
+    label: "Expert Auditor",
+    description: "Skeptical and precise. Grades strictly on proven technical evidence and seniority — the harshest of the three, best for senior/critical hires.",
+  },
+  hacker: {
+    label: "Startup Hacker",
+    description: "Values speed and versatility over polish. Rewards candidates who've shipped real things from scratch — best for early-stage, scrappy teams.",
+  },
+  architect: {
+    label: "System Architect",
+    description: "Prioritizes scalability and long-term maintainability. Favors clean structure and design thinking over raw speed — best for platform/infra roles.",
+  },
+}
+
 export default function CandidatePage() {
   const params = useParams()
   const [candidate, setCandidate] = useState(null)
@@ -47,6 +63,16 @@ export default function CandidatePage() {
   const [loadingRecommendation, setLoadingRecommendation] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isPortfolioDialogOpen, setIsPortfolioDialogOpen] = useState(false)
+  const [portfolioUrlInput, setPortfolioUrlInput] = useState("")
+  const [quizAnswers, setQuizAnswers] = useState({})
+
+  const selectQuizAnswer = (questionIndex, optionIndex) => {
+    setQuizAnswers((prev) => {
+      if (prev[questionIndex] !== undefined) return prev
+      return { ...prev, [questionIndex]: optionIndex }
+    })
+  }
   const [selectedPersona, setSelectedPersona] = useState('expert')
   const [interviewRound, setInterviewRound] = useState('Technical')
   const [addonInput, setAddonInput] = useState("")
@@ -73,31 +99,27 @@ export default function CandidatePage() {
   // Enterprise Suite (Level 3)
   const [analysisRating, setAnalysisRating] = useState(null) // 'good' | 'bad'
   
-  // Load candidate from Supabase
+  // Load candidate from MongoDB
   useEffect(() => {
     const fetchCandidate = async () => {
         if (!params.id) return
         
         try {
-            const { supabase } = await import("@/lib/supabase")
-            const { data, error } = await supabase
-                .from('candidates')
-                .select('*')
-                .eq('id', params.id)
-                .maybeSingle()
+            const { getCandidateById } = await import("@/actions/candidateActions")
+            const res = await getCandidateById(params.id)
             
-            if (error) {
-                console.error("Database Error:", error.message)
-                toast.error(`Database error: ${error.message}`)
+            if (!res.success) {
+                console.error("Database Error:", res.error)
+                toast.error(`Database error: ${res.error}`)
                 return
             }
 
-            if (!data) {
+            if (!res.candidate) {
                 toast.error("Candidate profile not found")
                 return
             }
 
-            setCandidate(data)
+            setCandidate(res.candidate)
         } catch (err) {
             console.error("Fetch Error:", err)
             toast.error("Failed to load candidate profile")
@@ -107,22 +129,26 @@ export default function CandidatePage() {
     fetchCandidate()
   }, [params.id])
 
-  // Chat State with localStorage persistence
+  // Chat State with MongoDB persistence
   const [chatInput, setChatInput] = useState("")
   const [chatMessages, setChatMessages] = useState([])
   const [chatLoading, setChatLoading] = useState(false)
 
-  // Load chat history from localStorage when candidate loads
+  const persistChatHistory = async (messages) => {
+    if (!candidate?.id) return
+    const { updateCandidateChatHistory } = await import("@/actions/candidateActions")
+    await updateCandidateChatHistory(candidate.id, messages)
+  }
+
+  // Load chat history from MongoDB when candidate loads
   useEffect(() => {
     if (candidate?.id) {
-      const savedChats = localStorage.getItem(`chat_${candidate.id}`)
-      if (savedChats) {
-        setChatMessages(JSON.parse(savedChats))
+      if (candidate.chat_history?.length > 0) {
+        setChatMessages(candidate.chat_history)
       } else {
-        // Initialize with welcome message
         const initialMsg = [{ role: "assistant", content: `Hi! I'm your AI assistant. Ask me anything about ${candidate.name}'s experience or skills.` }]
         setChatMessages(initialMsg)
-        localStorage.setItem(`chat_${candidate.id}`, JSON.stringify(initialMsg))
+        persistChatHistory(initialMsg)
       }
     }
   }, [candidate?.id])
@@ -133,7 +159,7 @@ export default function CandidatePage() {
     const userMsg = { role: "user", content: chatInput }
     const updatedMessages = [...chatMessages, userMsg]
     setChatMessages(updatedMessages)
-    localStorage.setItem(`chat_${candidate.id}`, JSON.stringify(updatedMessages))
+    await persistChatHistory(updatedMessages)
     setChatInput("")
     setChatLoading(true)
 
@@ -146,12 +172,12 @@ export default function CandidatePage() {
         const assistantMsg = { role: data.role, content: data.content }
         const finalMessages = [...updatedMessages, assistantMsg]
         setChatMessages(finalMessages)
-        localStorage.setItem(`chat_${candidate.id}`, JSON.stringify(finalMessages))
+        await persistChatHistory(finalMessages)
     } catch (err) {
         console.error(err)
         const errorMessages = [...updatedMessages, { role: "assistant", content: "Sorry, I encountered an error. Please try again." }]
         setChatMessages(errorMessages)
-        localStorage.setItem(`chat_${candidate.id}`, JSON.stringify(errorMessages))
+        await persistChatHistory(errorMessages)
     } finally {
         setChatLoading(false)
     }
@@ -175,8 +201,6 @@ export default function CandidatePage() {
       });
       const data = await res.json();
       
-      const { supabase } = await import("@/lib/supabase")
-      
       const parsedScore = parseInt(String(data.score).replace(/[^0-9]/g, '')) || 0;
       const mergedAnalysis = {
           ...data.analysis,
@@ -188,17 +212,16 @@ export default function CandidatePage() {
 
       // Update local state atomically
       setRecommendation(mergedAnalysis);
+      setQuizAnswers({});
 
-      // Persist to Supabase
-      const { error: updateError } = await supabase
-          .from('candidates')
-          .update({ 
-              score: parsedScore,
-              analysis: mergedAnalysis 
-          })
-          .eq('id', candidate.id)
+      // Persist to MongoDB
+      const { updateCandidate } = await import("@/actions/candidateActions")
+      const updateResult = await updateCandidate(candidate.id, { 
+          score: parsedScore,
+          analysis: mergedAnalysis 
+      })
 
-      if (!updateError) {
+      if (updateResult.success) {
           // Update candidate state immediately
           setCandidate(prev => ({
               ...prev,
@@ -207,9 +230,8 @@ export default function CandidatePage() {
           }))
           
           toast.success(`AI ${selectedPersona} Analysis generated and saved!`);
-          // router.refresh(); // Removed to avoid page flicker, state update is enough
       } else {
-          console.error("Database persistence failed:", updateError)
+          console.error("Database persistence failed:", updateResult.error)
           toast.error("Analysis generated but failed to save to database");
       }
     } catch (error) {
@@ -220,15 +242,12 @@ export default function CandidatePage() {
     }
   };
 
-  // Candidate Actions (Supabase)
+  // Candidate Actions (MongoDB)
   const handleAccept = async () => {
-    const { supabase } = await import("@/lib/supabase")
-    const { error } = await supabase
-        .from('candidates')
-        .update({ status: 'Accepted' })
-        .eq('id', candidate.id)
+    const { updateCandidate } = await import("@/actions/candidateActions")
+    const res = await updateCandidate(candidate.id, { status: 'Accepted' })
 
-    if (error) {
+    if (!res.success) {
         toast.error("Failed to update status")
         return
     }
@@ -238,13 +257,10 @@ export default function CandidatePage() {
   };
 
   const handleReject = async () => {
-    const { supabase } = await import("@/lib/supabase")
-    const { error } = await supabase
-        .from('candidates')
-        .update({ status: 'Rejected' })
-        .eq('id', candidate.id)
+    const { updateCandidate } = await import("@/actions/candidateActions")
+    const res = await updateCandidate(candidate.id, { status: 'Rejected' })
 
-    if (error) {
+    if (!res.success) {
         toast.error("Failed to update status")
         return
     }
@@ -256,41 +272,16 @@ export default function CandidatePage() {
   const handleDelete = async () => {
     setIsDeleting(true)
     try {
-      const { supabase } = await import("@/lib/supabase")
+      const { deleteCandidate } = await import("@/actions/candidateActions")
       
-      // 1. Storage Cleanup - Extract filename from URL
-      if (candidate.resume_url) {
-        try {
-          // Supabase public URL format: .../resumes/filename
-          const urlParts = candidate.resume_url.split('/')
-          const fileName = urlParts[urlParts.length - 1]
-          
-          if (fileName) {
-            const { error: storageError } = await supabase.storage
-              .from('resumes')
-              .remove([fileName])
-            
-            if (storageError) {
-              console.error("Storage deletion error:", storageError)
-              // We continue even if storage fails to ensure DB is clean, 
-              // but we log it.
-            } else {
-              console.log("✅ Storage file deleted:", fileName)
-            }
-          }
-        } catch (storageErr) {
-          console.error("Failed to parse storage URL:", storageErr)
-        }
-      }
+      // We can add Vercel Blob deletion here if we have a delete route/action
+      // For now, we delete from DB.
 
       // 2. Database Deletion
-      const { error } = await supabase
-          .from('candidates')
-          .delete()
-          .eq('id', candidate.id)
+      const res = await deleteCandidate(candidate.id)
 
-      if (error) {
-          throw error
+      if (!res.success) {
+          throw new Error(res.error)
       }
 
       toast.success('Candidate and resume permanently deleted');
@@ -349,18 +340,15 @@ export default function CandidatePage() {
           newQuestion
         ]
 
-        const { supabase } = await import("@/lib/supabase")
+        const { updateCandidate } = await import("@/actions/candidateActions")
         const mergedAnalysis = {
           ...candidate.analysis,
           interview_questions: updatedQuestions
         }
 
-        const { error } = await supabase
-          .from('candidates')
-          .update({ analysis: mergedAnalysis })
-          .eq('id', candidate.id)
+        const res = await updateCandidate(candidate.id, { analysis: mergedAnalysis })
 
-        if (!error) {
+        if (res.success) {
           // Update candidate state
           setCandidate(prev => ({
             ...prev,
@@ -440,9 +428,18 @@ export default function CandidatePage() {
     }
   }
 
-  const handleDeepResearch = async () => {
-    const url = prompt("Enter Portfolio or GitHub URL:")
-    if (!url) return
+  const handleDeepResearch = () => {
+    setPortfolioUrlInput("")
+    setIsPortfolioDialogOpen(true)
+  }
+
+  const submitPortfolioResearch = async () => {
+    const url = portfolioUrlInput.trim()
+    if (!url) {
+      toast.error("Please enter a portfolio or GitHub URL")
+      return
+    }
+    setIsPortfolioDialogOpen(false)
     setLoadingResearch(true)
     try {
         const res = await fetch('/api/analyze/portfolio', {
@@ -459,7 +456,6 @@ export default function CandidatePage() {
     } catch (err) {
         toast.error("Research failed")
     } finally {
-        setLoadingResearch(true) // Keep research state until reset
         setLoadingResearch(false)
     }
   }
@@ -571,9 +567,9 @@ export default function CandidatePage() {
             </Button>
         </div>
 
-      <div className="grid gap-8 lg:grid-cols-3 items-start pb-20">
+      <div className="grid gap-8 lg:grid-cols-3 items-start pb-20 min-w-0">
         {/* Combined Side Navigation (1/3) */}
-        <div className="space-y-6 lg:sticky lg:top-8">
+        <div className="space-y-6 lg:sticky lg:top-8 min-w-0">
           <Card className="border-primary/20 bg-card/40 backdrop-blur-xl overflow-hidden rounded-[2rem] shadow-2xl">
             <CardHeader className="pb-3 border-b border-primary/10 bg-primary/5">
                 <div className="flex flex-col items-center gap-4 text-center">
@@ -627,15 +623,25 @@ export default function CandidatePage() {
                   <p className="text-[11px] font-bold text-muted-foreground uppercase opacity-70">AI Persona Select</p>
                   <div className="flex gap-1 p-1 bg-muted/50 border border-border/50 rounded-2xl">
                     {['expert', 'hacker', 'architect'].map((p) => (
-                      <button 
-                        key={p}
-                        onClick={() => setSelectedPersona(p)}
-                        className={`flex-1 px-2 py-2 text-[10px] font-black rounded-xl transition-all capitalize ${selectedPersona === p ? 'bg-background shadow-lg text-primary scale-[1.05]' : 'text-muted-foreground hover:text-foreground'}`}
-                      >
-                        {p}
-                      </button>
+                      <InfoTooltip key={p}>
+                        <InfoTooltipTrigger asChild>
+                          <button
+                            onClick={() => setSelectedPersona(p)}
+                            className={`flex-1 px-2 py-2 text-[10px] font-black rounded-xl transition-all capitalize ${selectedPersona === p ? 'bg-background shadow-lg text-primary scale-[1.05]' : 'text-muted-foreground hover:text-foreground'}`}
+                          >
+                            {p}
+                          </button>
+                        </InfoTooltipTrigger>
+                        <InfoTooltipContent className="max-w-[220px] text-xs leading-relaxed">
+                          <span className="font-bold block mb-0.5">{PERSONA_INFO[p].label}</span>
+                          {PERSONA_INFO[p].description}
+                        </InfoTooltipContent>
+                      </InfoTooltip>
                     ))}
                   </div>
+                  <p className="text-[10px] text-muted-foreground leading-relaxed px-1">
+                    {PERSONA_INFO[selectedPersona].description}
+                  </p>
                 </div>
 
                 <Button className="w-full rounded-2xl py-8 h-auto flex flex-col items-center gap-1 font-black shadow-xl shadow-primary/20 group" onClick={fetchRecommendation} disabled={loadingRecommendation}>
@@ -667,10 +673,10 @@ export default function CandidatePage() {
         </div>
 
         {/* Main Content Dashboard (2/3) */}
-        <div className="lg:col-span-2 space-y-6 min-h-screen">
+        <div className="lg:col-span-2 space-y-6 min-h-screen min-w-0">
           <Tabs defaultValue="report" className="w-full">
             <div className="flex items-center justify-between mb-6 p-1.5 bg-card/40 backdrop-blur-xl border border-primary/10 rounded-2xl sticky top-8 z-30 shadow-xl">
-              <TabsList className="bg-transparent border-none w-full grid grid-cols-6 h-12">
+              <TabsList className="bg-transparent border-none w-full grid grid-cols-3 sm:grid-cols-6 gap-1 h-auto sm:h-12">
                 <TabsTrigger value="report" className="text-[10px] font-black uppercase tracking-widest rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">Report</TabsTrigger>
                 <TabsTrigger value="intelligence" className="text-[10px] font-black uppercase tracking-widest rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">Intel</TabsTrigger>
                 <TabsTrigger value="interview" className="text-[10px] font-black uppercase tracking-widest rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">Prep</TabsTrigger>
@@ -811,16 +817,17 @@ export default function CandidatePage() {
                             <div className="h-[300px] w-full">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
-                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="oklch(var(--border) / 0.1)" />
+                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--border)" />
                                         <XAxis type="number" domain={[0, 100]} hide />
-                                        <YAxis dataKey="name" type="category" stroke="oklch(var(--muted-foreground))" fontSize={10} width={80} fontWeight="bold" />
-                                        <Tooltip 
-                                            contentStyle={{ backgroundColor: 'oklch(var(--card))', borderRadius: '12px', border: '1px solid oklch(var(--primary) / 0.2)' }}
-                                            cursor={{ fill: 'oklch(var(--primary) / 0.05)' }}
+                                        <YAxis dataKey="name" type="category" stroke="var(--muted-foreground)" fontSize={10} width={80} fontWeight="bold" />
+                                        <Tooltip
+                                            contentStyle={{ backgroundColor: 'var(--card)', borderRadius: '12px', border: '1px solid color-mix(in oklch, var(--chart-1) 30%, transparent)' }}
+                                            itemStyle={{ color: 'var(--foreground)' }}
+                                            cursor={{ fill: 'color-mix(in oklch, var(--chart-1) 8%, transparent)' }}
                                         />
-                                        <Bar dataKey="score" fill="oklch(var(--primary))" radius={[0, 12, 12, 0]} barSize={24}>
+                                        <Bar dataKey="score" fill="var(--chart-1)" radius={[0, 12, 12, 0]} barSize={24}>
                                             {chartData.map((entry, index) => (
-                                                <Cell key={index} fill={index % 2 === 0 ? 'oklch(var(--primary))' : 'oklch(var(--primary) / 0.6)'} />
+                                                <Cell key={index} fill={index % 2 === 0 ? 'var(--chart-1)' : 'color-mix(in oklch, var(--chart-1) 60%, transparent)'} />
                                             ))}
                                         </Bar>
                                     </BarChart>
@@ -1049,9 +1056,9 @@ export default function CandidatePage() {
                             {candidate.analysis?.culture_radar ? (
                                 <ResponsiveContainer width="100%" height="100%">
                                     <RadarChart cx="50%" cy="50%" outerRadius="70%" data={candidate.analysis.culture_radar}>
-                                        <PolarGrid stroke="oklch(var(--border) / 0.2)" />
-                                        <PolarAngleAxis dataKey="value" tick={{ fill: "oklch(var(--muted-foreground))", fontSize: 9 }} />
-                                        <Radar name={candidate.name} dataKey="score" stroke="oklch(var(--primary))" fill="oklch(var(--primary))" fillOpacity={0.6} />
+                                        <PolarGrid stroke="var(--border)" />
+                                        <PolarAngleAxis dataKey="value" tick={{ fill: "var(--muted-foreground)", fontSize: 9 }} />
+                                        <Radar name={candidate.name} dataKey="score" stroke="var(--chart-2)" fill="var(--chart-2)" fillOpacity={0.5} />
                                     </RadarChart>
                                 </ResponsiveContainer>
                             ) : (
@@ -1398,12 +1405,35 @@ export default function CandidatePage() {
                                                     </div>
                                                     <p className="text-sm font-bold leading-tight">{q.question}</p>
                                                     <div className="grid grid-cols-2 gap-2 pt-2">
-                                                        {q.options.map((opt, oi) => (
-                                                            <div key={oi} className="p-2 rounded bg-background border text-[10px] text-muted-foreground text-center hover:border-primary cursor-pointer transition-all">
-                                                                {opt}
-                                                            </div>
-                                                        ))}
+                                                        {q.options.map((opt, oi) => {
+                                                            const selected = quizAnswers[i]
+                                                            const isPicked = selected === oi
+                                                            const isCorrect = oi === q.correct_index
+                                                            const revealed = selected !== undefined
+                                                            return (
+                                                                <button
+                                                                    key={oi}
+                                                                    type="button"
+                                                                    onClick={() => selectQuizAnswer(i, oi)}
+                                                                    disabled={revealed}
+                                                                    className={`p-2 rounded border text-[10px] text-center transition-all ${
+                                                                        revealed && isCorrect
+                                                                            ? "bg-green-500/10 border-green-500/40 text-green-500 font-bold"
+                                                                            : revealed && isPicked
+                                                                            ? "bg-red-500/10 border-red-500/40 text-red-500 font-bold"
+                                                                            : "bg-background border-border text-muted-foreground hover:border-primary"
+                                                                    }`}
+                                                                >
+                                                                    {opt}
+                                                                </button>
+                                                            )
+                                                        })}
                                                     </div>
+                                                    {quizAnswers[i] !== undefined && (
+                                                        <p className={`text-[10px] font-bold ${quizAnswers[i] === q.correct_index ? "text-green-500" : "text-red-500"}`}>
+                                                            {quizAnswers[i] === q.correct_index ? "Correct" : "Incorrect"} — answer: {q.options[q.correct_index]}
+                                                        </p>
+                                                    )}
                                                 </div>
                                             ))}
                                         </div>
@@ -1435,6 +1465,30 @@ export default function CandidatePage() {
                 <Button variant="destructive" onClick={handleDelete} disabled={isDeleting} className="min-w-[100px]">
                     {isDeleting ? "Deleting..." : "Delete Permanently"}
                 </Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isPortfolioDialogOpen} onOpenChange={setIsPortfolioDialogOpen}>
+        <DialogContent className="max-w-md">
+            <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                    <Github className="h-5 w-5 text-primary" /> Deep Dive Research
+                </DialogTitle>
+                <DialogDescription className="pt-2">
+                    Paste a GitHub profile or personal portfolio URL. The AI assesses technical depth using the candidate's resume as ground truth — it does not browse the link itself.
+                </DialogDescription>
+            </DialogHeader>
+            <Input
+                autoFocus
+                placeholder="https://github.com/username"
+                value={portfolioUrlInput}
+                onChange={(e) => setPortfolioUrlInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") submitPortfolioResearch() }}
+            />
+            <DialogFooter className="mt-4 flex gap-3">
+                <Button variant="outline" onClick={() => setIsPortfolioDialogOpen(false)}>Cancel</Button>
+                <Button onClick={submitPortfolioResearch}>Analyze</Button>
             </DialogFooter>
         </DialogContent>
       </Dialog>

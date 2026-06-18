@@ -8,11 +8,12 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
+import { Suspense } from "react"
 import { Swords, ChevronLeft, TrendingUp, Trophy, AlertTriangle, CheckCircle2, LayoutGrid, Brain, ShieldCheck, Zap } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
 
-export default function ComparePage() {
+function CompareContent() {
     const searchParams = useSearchParams()
     const router = useRouter()
     const ids = searchParams.get('ids')?.split(',') || []
@@ -33,14 +34,15 @@ export default function ComparePage() {
 
             setLoading(true)
             try {
-                const { supabase } = await import("@/lib/supabase")
-                const { data, error } = await supabase
-                    .from('candidates')
-                    .select('*')
-                    .in('id', ids)
+                const { getCandidatesByIds } = await import("@/actions/candidateActions")
+                const res = await getCandidatesByIds(ids)
                 
-                if (error) throw error
-                setCandidates(data || [])
+                if (res.success && res.candidates) {
+                    setCandidates(res.candidates)
+                } else {
+                    console.error("Error fetching candidates:", res.error)
+                    toast.error("Failed to load candidates for comparison")
+                }
             } catch (err) {
                 console.error("Fetch error:", err)
                 toast.error("Failed to load candidates for comparison")
@@ -74,14 +76,14 @@ export default function ComparePage() {
 
     return (
         <AppShell title="Multi-Candidate Intelligence Matrix">
-            <div className="mb-6 flex items-center justify-between">
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
                 <Button variant="ghost" size="sm" asChild>
                     <Link href="/candidates" className="flex items-center text-muted-foreground hover:text-foreground">
                         <ChevronLeft className="mr-2 h-4 w-4" />
                         Back to Pipeline
                     </Link>
                 </Button>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                     <Badge variant="outline" className="px-4 py-1 border-primary/20 bg-primary/5">
                         <LayoutGrid className="mr-2 h-4 w-4 text-primary" />
                         Batch Analytics Mode
@@ -128,7 +130,7 @@ export default function ComparePage() {
                                 <p className="text-sm font-bold uppercase text-primary mb-2">The Winning Edge:</p>
                                 <p className="text-lg font-medium leading-relaxed">{batchInsight.winning_rationale}</p>
                             </div>
-                            <div className="space-y-4 border-l pl-8 border-primary/10">
+                            <div className="space-y-4 md:border-l md:pl-8 border-primary/10">
                                 <div>
                                     <p className="text-[10px] uppercase font-bold text-muted-foreground">TOP PICK</p>
                                     <p className="text-xl font-black">{batchInsight.top_pick}</p>
@@ -220,5 +222,13 @@ export default function ComparePage() {
                 ))}
             </div>
         </AppShell>
+    )
+}
+
+export default function ComparePage() {
+    return (
+        <Suspense fallback={<div className="p-10 text-center">Loading comparison matrix...</div>}>
+            <CompareContent />
+        </Suspense>
     )
 }

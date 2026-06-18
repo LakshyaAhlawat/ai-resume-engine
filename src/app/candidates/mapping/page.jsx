@@ -28,13 +28,11 @@ export default function TalentMappingPage() {
   useEffect(() => {
     const fetchCandidates = async () => {
       try {
-        const { supabase } = await import("@/lib/supabase")
-        const { data, error } = await supabase
-          .from('candidates')
-          .select('*')
+        const { getCandidates } = await import("@/actions/candidateActions")
+        const res = await getCandidates()
         
-        if (error) throw error
-        setCandidates(data || [])
+        if (!res.success) throw new Error(res.error)
+        setCandidates(res.candidates || [])
       } catch (err) {
         console.error("Mapping Fetch Error:", err)
         toast.error("Failed to load talent map data")
@@ -79,7 +77,7 @@ export default function TalentMappingPage() {
               <Badge variant="outline" className="px-4 py-1 border-primary/30 text-primary bg-primary/10 rounded-full text-[10px] font-bold uppercase tracking-widest">
                  Talent Intelligence Hub
               </Badge>
-              <h1 className="text-4xl md:text-5xl font-black tracking-tighter">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tighter break-words">
                 Global <span className="text-primary italic">Talent Map</span>
               </h1>
               <p className="text-muted-foreground max-w-xl leading-relaxed">
