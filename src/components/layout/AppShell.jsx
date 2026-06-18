@@ -20,6 +20,15 @@ export function AppShell({ children, title }) {
     }
   }, [user, loading, router])
 
+  // Safety net: if a Dialog/Sheet gets interrupted mid-close by a route change,
+  // Radix can leave the page's scroll permanently locked. Clear it on every navigation.
+  useEffect(() => {
+    document.documentElement.style.overflow = ""
+    document.body.style.overflow = ""
+    document.documentElement.removeAttribute("data-scroll-locked")
+    document.body.removeAttribute("data-scroll-locked")
+  }, [pathname])
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
@@ -43,7 +52,7 @@ export function AppShell({ children, title }) {
         <Sidebar />
         <div className="flex-1 min-w-0 flex flex-col relative z-10">
           <Header title={title} />
-          <main className="flex-1 min-w-0 p-4 sm:p-6 space-y-6 overflow-auto overflow-x-hidden">
+          <main className="flex-1 min-w-0 p-4 sm:p-6 space-y-6 overflow-y-auto overflow-x-hidden">
             <AnimatePresence mode="wait">
               <motion.div
                 key={pathname}

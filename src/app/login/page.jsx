@@ -73,7 +73,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="container relative h-screen flex-col items-center justify-center md:grid lg:max-w-none lg:grid-cols-2 lg:px-0">
+    <div className="relative min-h-screen overflow-x-hidden bg-background lg:h-screen lg:grid lg:grid-cols-2">
+      {/* Ambient background for mobile/tablet — desktop gets the photo panel instead */}
+      <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_top,_color-mix(in_oklch,var(--chart-2)_16%,transparent),transparent_60%)] lg:hidden" />
+
       <div className="relative hidden h-full flex-col bg-muted p-10 text-white lg:flex dark:border-r">
         <div className="absolute inset-0 bg-zinc-900" />
         <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1590069261209-f8e9b8642343?auto=format&fit=crop&q=80&w=2676&ixlib=rb-4.0.3')] bg-cover bg-center opacity-20" />
@@ -90,15 +93,22 @@ export default function LoginPage() {
           </blockquote>
         </div>
       </div>
-      <div className="lg:p-8">
-        <div className="absolute right-4 top-4 md:right-8 md:top-8">
-          <Button variant="ghost" asChild>
+
+      <div className="flex min-h-screen flex-col lg:h-full lg:min-h-0 lg:p-8">
+        <div className="flex items-center justify-between px-4 py-4 sm:px-6 lg:absolute lg:right-8 lg:top-8 lg:block lg:px-0 lg:py-0">
+          <Link href="/" className="flex items-center gap-2 font-semibold lg:hidden">
+            <Bot className="h-5 w-5 text-primary" />
+            ResumeAI
+          </Link>
+          <Button variant="ghost" size="sm" asChild>
             <Link href="/">Back to Website</Link>
           </Button>
         </div>
-        <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
+
+        <div className="flex flex-1 items-center justify-center px-4 pb-10 sm:px-6">
+        <div className="mx-auto flex w-full max-w-sm flex-col justify-center space-y-6 rounded-3xl border border-border/60 bg-card/60 p-6 shadow-xl backdrop-blur-xl sm:p-8 lg:max-w-[350px] lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none lg:backdrop-blur-none">
           <div className="flex flex-col space-y-2 text-center">
-            <h1 className="text-2xl font-semibold tracking-tight">
+            <h1 className="text-2xl font-semibold tracking-tight break-words">
               {isSignUp ? "Create an account" : "Welcome back"}
             </h1>
             <p className="text-sm text-muted-foreground">
@@ -195,7 +205,7 @@ export default function LoginPage() {
               </Button>
             </div>
           </div>
-          <p className="px-8 text-center text-sm text-muted-foreground">
+          <p className="px-0 text-center text-sm text-muted-foreground sm:px-8">
             By clicking continue, you agree to our{" "}
             <Link
               href="/terms"
@@ -212,6 +222,7 @@ export default function LoginPage() {
             </Link>
             .
           </p>
+        </div>
         </div>
       </div>
     </div>

@@ -22,10 +22,35 @@ export default function UploadPage() {
   const router = useRouter()
   const [isAnalyzing, setIsAnalyzing] = useState(false)
 
+  const MAX_RESUME_SIZE_MB = 8
+  const ALLOWED_EXTENSIONS = [".pdf", ".doc", ".docx"]
+
+  const validateAndAddFiles = (fileList) => {
+    const incoming = Array.from(fileList)
+    const accepted = []
+
+    incoming.forEach((f) => {
+        const hasValidExtension = ALLOWED_EXTENSIONS.some((ext) => f.name.toLowerCase().endsWith(ext))
+        if (!hasValidExtension) {
+            toast.error(`${f.name}: only PDF or DOCX resumes are supported`)
+            return
+        }
+        if (f.size > MAX_RESUME_SIZE_MB * 1024 * 1024) {
+            toast.error(`${f.name} is too large. Please keep resumes under ${MAX_RESUME_SIZE_MB}MB.`)
+            return
+        }
+        accepted.push({ name: f.name, size: f.size, originalFile: f })
+    })
+
+    if (accepted.length > 0) {
+        setFiles(prev => [...prev, ...accepted])
+    }
+  }
+
   const onFileInputChange = (e) => {
     if (e.target.files && e.target.files[0]) {
-      const newFiles = Array.from(e.target.files).map(f => ({ name: f.name, size: f.size, originalFile: f }))
-      setFiles(prev => [...prev, ...newFiles])
+      validateAndAddFiles(e.target.files)
+      e.target.value = ""
     }
   }
 
@@ -44,8 +69,7 @@ export default function UploadPage() {
     e.stopPropagation()
     setDragActive(false)
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const newFiles = Array.from(e.dataTransfer.files).map(f => ({ name: f.name, size: f.size, originalFile: f }))
-      setFiles(prev => [...prev, ...newFiles])
+      validateAndAddFiles(e.dataTransfer.files)
     }
   }
 

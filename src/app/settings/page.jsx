@@ -63,25 +63,40 @@ export default function SettingsPage() {
     }
   }
 
+  const MAX_AVATAR_SIZE_MB = 1
+
   const handleAvatarChange = async (e) => {
-    if (e.target.files && e.target.files[0]) {
-      setLoading(true)
-      try {
-          const file = e.target.files[0]
-          const formData = new FormData()
-          formData.append("file", file)
+    const file = e.target.files?.[0]
+    if (!file) return
 
-          const result = await uploadAvatar(formData)
-          if (!result.success) throw new Error(result.error)
+    if (!file.type.startsWith("image/")) {
+        toast.error("Please choose an image file (JPG, PNG, or GIF)")
+        e.target.value = ""
+        return
+    }
 
-          await updateProfile({ avatar_url: result.url })
-          toast.success("Avatar updated successfully")
-      } catch (error) {
-          console.error("Avatar Upload Error:", error)
-          toast.error("Failed to upload avatar. Check Vercel Blob configuration.")
-      } finally {
-          setLoading(false)
-      }
+    if (file.size > MAX_AVATAR_SIZE_MB * 1024 * 1024) {
+        toast.error(`Image is too large. Please choose a file under ${MAX_AVATAR_SIZE_MB}MB.`)
+        e.target.value = ""
+        return
+    }
+
+    setLoading(true)
+    try {
+        const formData = new FormData()
+        formData.append("file", file)
+
+        const result = await uploadAvatar(formData)
+        if (!result.success) throw new Error(result.error)
+
+        await updateProfile({ avatar_url: result.url })
+        toast.success("Avatar updated successfully")
+    } catch (error) {
+        console.error("Avatar Upload Error:", error)
+        toast.error("Failed to upload avatar. Please try again.")
+    } finally {
+        setLoading(false)
+        e.target.value = ""
     }
   }
 
