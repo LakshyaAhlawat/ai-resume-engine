@@ -71,7 +71,7 @@ export async function POST(request) {
             ...groqHistory,
             { role: "user", content: message }
           ],
-          model: "llama-3.3-70b-versatile",
+          model: "openai/gpt-oss-120b",
         });
 
         const text = completion.choices[0]?.message?.content;

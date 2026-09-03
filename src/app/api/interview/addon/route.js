@@ -20,7 +20,7 @@ export async function POST(request) {
     }
 
     const prompt = `
-      You are an elite technical interviewer using Llama 3 intelligence.
+      You are an elite technical interviewer using advanced reasoning intelligence.
       Generate ONE specific, high-quality interview question for the '${round}' round.
       
       CONTEXT:
@@ -39,7 +39,7 @@ export async function POST(request) {
 
     const completion = await groq.chat.completions.create({
         messages: [{ role: "user", content: prompt }],
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120b",
         response_format: { type: "json_object" }
     });
 

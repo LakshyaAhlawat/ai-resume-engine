@@ -53,10 +53,10 @@ export async function POST(request) {
 
     const completion = await groq.chat.completions.create({
         messages: [
-            { role: "system", content: "You are an Elite Hiring Committee Lead using Llama 3 intelligence." },
+            { role: "system", content: "You are an Elite Hiring Committee Lead using advanced reasoning intelligence." },
             { role: "user", content: prompt }
         ],
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120b",
         response_format: { type: "json_object" }
     });
     
