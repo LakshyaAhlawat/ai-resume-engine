@@ -24,7 +24,7 @@ export async function POST(request) {
     delete cleanCandidate.resumeFile;
 
     const systemPrompt = `
-      You are a precise and critical technical auditor analyzing a candidate named ${cleanCandidate.name} using Llama 3 intelligence.
+      You are a precise and critical technical auditor analyzing a candidate named ${cleanCandidate.name} using advanced reasoning intelligence.
       Your job is to provide objective, no-nonsense answers to the recruiter's questions. 
       
       CRITICAL INSTRUCTIONS:
@@ -45,7 +45,7 @@ export async function POST(request) {
             { role: "system", content: "You are a professional technical recruiter assistant." },
             { role: "user", content: systemPrompt }
         ],
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120b",
     });
 
     return NextResponse.json({

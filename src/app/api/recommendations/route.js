@@ -57,7 +57,7 @@ Return ONLY valid JSON.`;
             { role: "system", content: "You are a precise technical auditor. You provide objective, critical hierarchy-based assessments." },
             { role: "user", content: prompt }
           ],
-          model: "llama-3.3-70b-versatile",
+          model: "openai/gpt-oss-120b",
           response_format: { type: "json_object" }
         });
 

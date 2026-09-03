@@ -696,7 +696,7 @@ export default function CandidatePage() {
                         </div>
                         <div className="text-center">
                             <p className="text-xl font-black tracking-tighter uppercase italic text-primary">AI Neural Matrix Loading...</p>
-                            <p className="text-sm text-muted-foreground font-medium">Decoding candidate potential using Groq Llama 3...</p>
+                            <p className="text-sm text-muted-foreground font-medium">Decoding candidate potential using Groq GPT-OSS-120B...</p>
                         </div>
                      </div>
                    ) : (recommendation || candidate.analysis?.recommendation) ? (
@@ -912,7 +912,7 @@ export default function CandidatePage() {
                                         <p className="text-4xl font-black text-primary">{(recommendation || candidate.analysis).consensus_metrics.gemini_score}</p>
                                     </div>
                                     <div className="space-y-4 text-center">
-                                        <p className="text-[10px] font-bold text-muted-foreground uppercase">Llama-3 (Groq)</p>
+                                        <p className="text-[10px] font-bold text-muted-foreground uppercase">GPT-OSS-120B (Groq)</p>
                                         <p className="text-4xl font-black text-primary">{(recommendation || candidate.analysis).consensus_metrics.groq_score}</p>
                                     </div>
                                 </div>

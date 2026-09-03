@@ -188,7 +188,7 @@ function DocsPageContent() {
                             <CardTitle>Groq-Powered Scoring</CardTitle>
                         </CardHeader>
                         <CardContent className="text-sm text-muted-foreground leading-relaxed">
-                            Powered by Llama 3.3 70B via Groq. Includes a 5-dimension breakdown: Technical, Experience, Education, Soft Skills, and Culture DNA. All insights are generated with sub-1s latency.
+                            Powered by GPT-OSS-120B via Groq. Includes a 5-dimension breakdown: Technical, Experience, Education, Soft Skills, and Culture DNA. All insights are generated with sub-1s latency.
                         </CardContent>
                     </Card>
                     <Card className="border-primary/10 bg-primary/[0.02]">

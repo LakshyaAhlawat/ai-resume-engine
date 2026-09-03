@@ -49,7 +49,7 @@ export async function POST(request) {
         rawText = ""; 
     }
 
-    // 2. Try Groq (Llama 3) with Extracted Text - Priority 1
+    // 2. Try Groq (GPT-OSS-120B) with Extracted Text - Priority 1
     if (groq && rawText.length > 50) {
         try {
             console.log("✅ GROQ PARSING ATTEMPT");
@@ -66,7 +66,7 @@ export async function POST(request) {
                     },
                     { role: "user", content: truncatedText }
                 ],
-                model: "llama-3.3-70b-versatile",
+                model: "openai/gpt-oss-120b",
                 response_format: { type: "json_object" }
             });
             

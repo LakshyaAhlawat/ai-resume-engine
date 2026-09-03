@@ -149,7 +149,7 @@ export async function POST(request) {
             { role: "system", content: `You are a world-class recruitment AI operating in ${persona} mode.` },
             { role: "user", content: prompt }
         ],
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120b",
         response_format: { type: "json_object" }
     });
 
